@@ -19,7 +19,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LastTrack"
+rootProject.name = "LasTrack"
 
 include(":app")
 include(":core:model", ":core:parser", ":core:data", ":core:map")

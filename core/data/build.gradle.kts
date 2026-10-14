@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "LastTrack.duxtami.app.core.data"
+    namespace = "LasTrack.duxtami.app.core.data"
     compileSdk = 35
 
     defaultConfig {

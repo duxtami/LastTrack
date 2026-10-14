@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LastTrack</string>
+    <string name="app_name">LasTrack</string>
 
     <!-- Navigation -->
     <string name="nav_home">Home</string>

@@ -6,7 +6,7 @@ Kotlin · Jetpack Compose · Material 3 / Material You · Hilt · Room · DataSt
 **Status: Phase 1-2.** Import, parsing, statistics, storage and the full UI shell work. **No map SDK is included
 yet** (Phase 3+), no API keys are required, and the app declares no INTERNET permission.
 
-* Application ID / package: `LastTrack.duxtami.app`
+* Application ID / package: `LasTrack.duxtami.app`
 * minSdk 26, compile/target SDK 35, Gradle Kotlin DSL, Java/Kotlin 17
 
 ## Build
