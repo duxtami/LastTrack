@@ -6,6 +6,7 @@
     <string name="nav_home">Home</string>
     <string name="nav_routes">Routes</string>
     <string name="nav_maps">Maps</string>
+    <string name="nav_saved_places">Places</string>
     <string name="nav_settings">Settings</string>
     <string name="cd_back">Back</string>
     <string name="cd_search_routes">Search routes</string>
@@ -157,4 +158,34 @@
     <string name="about_privacy_text">LastTrack works offline. It has no accounts, no ads and no analytics, and it does not request internet access. Imported files and routes stay on your device until you export or share them.</string>
     <string name="about_licenses">Open-source libraries</string>
     <string name="about_licenses_text">LastTrack is built with Kotlin, kotlinx.coroutines, Jetpack Compose, Material 3, AndroidX (Navigation, Lifecycle, Room, DataStore) and Dagger Hilt. These libraries are released under the Apache License 2.0.</string>
+
+    <!-- Saved Places & Coordinates -->
+    <string name="search_places_hint">Search saved places…</string>
+    <string name="all_categories">All</string>
+    <string name="no_matching_places">No matching places found</string>
+    <string name="no_saved_places">No saved places yet</string>
+    <string name="add_coordinates_hint">Add coordinates from Google Maps, WhatsApp or any app with categories, custom notes and photos.</string>
+    <string name="add_place_button">Add Place / Coordinates</string>
+    <string name="place_saved_success">Place saved successfully</string>
+    <string name="invalid_coordinates_error">Could not parse coordinates. Please enter valid coordinates (e.g. 28.6139, 77.2090) or a Google Maps link.</string>
+    <string name="copied_to_clipboard">Coordinates copied to clipboard</string>
+    <string name="view_on_map">View on Map</string>
+    <string name="add_saved_place_title">Add Place / Coordinates</string>
+    <string name="place_name_label">Place Name</string>
+    <string name="coordinates_or_link_label">Coordinates or Google Maps Link</string>
+    <string name="category_label">Category</string>
+    <string name="description_reminder_label">Description / Reminder Note</string>
+    <string name="photo_attachment_label">Photo Attachment</string>
+    <string name="photo_attached">Photo attached</string>
+    <string name="import_photo_button">Import Photo from Gallery</string>
+    <string name="save_location_button">Save Location</string>
+
+    <!-- Track Recording & Bike Parking Reminder -->
+    <string name="record_track_btn">Record</string>
+    <string name="save_track_title">Save Recorded Track</string>
+    <string name="track_name_label">Track Name</string>
+    <string name="track_description_label">Description / Notes</string>
+    <string name="park_bike_reminder_title">Park Bike Reminder</string>
+    <string name="park_bike_reminder_desc">Mark your bike location with a custom note and easily navigate back to it anytime.</string>
+    <string name="action_open_google_maps">Open in Google Maps</string>
 </resources>

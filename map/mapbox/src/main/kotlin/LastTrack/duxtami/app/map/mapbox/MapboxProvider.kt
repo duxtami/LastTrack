@@ -11,10 +11,10 @@ class MapboxProvider : MapProvider {
     override val availability: MapAvailability = MapAvailability.Ready
 
     override val basemaps: List<BasemapStyle> = listOf(
-        BasemapStyle("default", "Streets"),
-        BasemapStyle("outdoors", "Outdoors"),
+        BasemapStyle("default", "Streets (With Places)"),
+        BasemapStyle("satellite", "Hybrid Satellite (With Places)"),
+        BasemapStyle("outdoors", "Outdoors Topo"),
         BasemapStyle("light", "Light"),
         BasemapStyle("dark", "Dark"),
-        BasemapStyle("satellite", "Satellite"),
     )
 }

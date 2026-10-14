@@ -95,15 +95,19 @@ fun EmptyState(
 }
 
 @Composable
-fun FormatBadge(format: SourceFormat, modifier: Modifier = Modifier) {
+fun FormatBadge(format: SourceFormat, isRecorded: Boolean = false, modifier: Modifier = Modifier) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        color = if (isRecorded) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = if (isRecorded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
         modifier = modifier.size(52.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(format.displayName, style = MaterialTheme.typography.labelLarge)
+            Text(
+                if (isRecorded) "REC" else format.displayName,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            )
         }
     }
 }
@@ -116,11 +120,30 @@ fun RouteListItem(
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val points = stringResource(R.string.points_count, Formatters.count(route.stats.pointCount))
+    val isRecorded = route.name.startsWith("Track ") || route.fileName.startsWith("Track ") || route.fileName.startsWith("rec_")
     ListItem(
         modifier = modifier.selectable(selected = false, role = Role.Button, onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { FormatBadge(route.format) },
-        headlineContent = { Text(route.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingContent = { FormatBadge(route.format, isRecorded = isRecorded) },
+        headlineContent = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(route.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (isRecorded) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                    ) {
+                        Text(
+                            "Recorded",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+            }
+        },
         supportingContent = {
             Text(
                 "${Formatters.distance(route.stats.distanceMeters)} · $points · ${Formatters.date(route.importedAt)}",

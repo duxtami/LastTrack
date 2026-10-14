@@ -6,6 +6,8 @@ import LastTrack.duxtami.app.core.map.MapProvider
 import LastTrack.duxtami.app.core.map.MapProviderRegistry
 import LastTrack.duxtami.app.core.model.AppPreferences
 import LastTrack.duxtami.app.core.model.DEFAULT_BASEMAP_ID
+import LastTrack.duxtami.app.core.model.GeoPoint
+import LastTrack.duxtami.app.core.model.GeoRoute
 import LastTrack.duxtami.app.core.model.MapProviderId
 import LastTrack.duxtami.app.core.model.PreferencesRepository
 import LastTrack.duxtami.app.core.model.RouteGeometry
@@ -36,6 +38,11 @@ data class MapsUiState(
     val route: RouteSummary? = null,
     val routeGeometry: RouteGeometry? = null,
     val preferences: AppPreferences = AppPreferences(),
+    val recordingStatus: RecordingStatus = RecordingStatus.IDLE,
+    val recordingStats: RecordingStats = RecordingStats(),
+    val recordedPoints: List<GeoPoint> = emptyList(),
+    val parkedBike: ParkedBikeReminder? = null,
+    val currentLocation: GeoPoint? = null,
 )
 
 @HiltViewModel
@@ -44,6 +51,7 @@ class MapsViewModel @Inject constructor(
     private val registry: MapProviderRegistry,
     private val preferences: PreferencesRepository,
     private val repository: RouteRepository,
+    val recordingManager: TrackRecordingManager,
 ) : ViewModel() {
     private val routeId: String? = savedStateHandle["routeId"]
 
@@ -57,7 +65,16 @@ class MapsViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<MapsUiState> = combine(preferences.preferences, routeFlow, geometryFlow) { prefs, route, geometry ->
+    val uiState: StateFlow<MapsUiState> = combine(
+        preferences.preferences,
+        routeFlow,
+        geometryFlow,
+        recordingManager.status,
+        recordingManager.stats,
+        recordingManager.recordedPoints,
+        recordingManager.parkedBike,
+        recordingManager.currentLocation,
+    ) { prefs, route, geometry, status, stats, recPoints, parkedBike, curLoc ->
         val provider: MapProvider? = registry.get(prefs.mapProvider)
         MapsUiState(
             providers = registry.all.map { ProviderOption(it.id, it.availability) },
@@ -68,12 +85,16 @@ class MapsViewModel @Inject constructor(
             route = route,
             routeGeometry = geometry,
             preferences = prefs,
+            recordingStatus = status,
+            recordingStats = stats,
+            recordedPoints = recPoints,
+            parkedBike = parkedBike,
+            currentLocation = curLoc,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MapsUiState())
 
     fun selectProvider(id: MapProviderId) {
         viewModelScope.launch {
-            // Switching provider resets the basemap: ids differ between providers.
             preferences.update { it.copy(mapProvider = id, basemapId = DEFAULT_BASEMAP_ID) }
         }
     }
@@ -83,4 +104,23 @@ class MapsViewModel @Inject constructor(
             preferences.update { it.copy(basemapId = id) }
         }
     }
+
+    fun startRecording(): Boolean = recordingManager.startRecording()
+
+    fun pauseRecording() = recordingManager.pauseRecording()
+
+    fun resumeRecording() = recordingManager.resumeRecording()
+
+    fun stopAndDiscard() = recordingManager.stopAndDiscard()
+
+    suspend fun stopAndSave(name: String? = null, desc: String? = null): GeoRoute? =
+        recordingManager.stopAndSave(name, desc)
+
+    fun setParkedBike(note: String = "Parked Bike"): ParkedBikeReminder? =
+        recordingManager.setParkedBike(note)
+
+    fun clearParkedBike() = recordingManager.clearParkedBike()
+
+    fun addWaypoint(name: String, desc: String? = null) =
+        recordingManager.addWaypoint(name, desc)
 }

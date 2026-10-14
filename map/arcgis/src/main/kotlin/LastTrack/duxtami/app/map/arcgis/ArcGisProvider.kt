@@ -12,7 +12,8 @@ class ArcGisProvider : MapProvider {
 
     override val basemaps: List<BasemapStyle> = listOf(
         BasemapStyle("default", "World Street"),
-        BasemapStyle("imagery", "World Imagery"),
         BasemapStyle("topographic", "World Topographic"),
+        BasemapStyle("imagery", "Hybrid Imagery (With Places)"),
+        BasemapStyle("natgeo", "National Geographic"),
     )
 }

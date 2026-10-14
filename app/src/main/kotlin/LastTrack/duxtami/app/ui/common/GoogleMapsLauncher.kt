@@ -29,15 +29,32 @@ object GoogleMapsLauncher {
             Uri.parse("https://www.google.com/maps/search/?api=1&query=" + Uri.encode(routeName))
         }
 
-        val mapIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+        launchIntent(context, uri)
+    }
+
+    /**
+     * Opens specific coordinates directly in official Google Maps app.
+     */
+    fun openCoordinates(context: Context, latitude: Double, longitude: Double, label: String? = null) {
+        val query = if (!label.isNullOrBlank()) {
+            "$latitude,$longitude(${Uri.encode(label)})"
+        } else {
+            "$latitude,$longitude"
+        }
+        val uri = Uri.parse("geo:$latitude,$longitude?q=$query")
+        val webFallback = Uri.parse("https://www.google.com/maps/search/?api=1&query=$latitude,$longitude")
+        launchIntent(context, uri, webFallback)
+    }
+
+    private fun launchIntent(context: Context, primaryUri: Uri, fallbackUri: Uri = primaryUri) {
+        val mapIntent = Intent(Intent.ACTION_VIEW, primaryUri).apply {
             setPackage("com.google.android.apps.maps")
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
-
         try {
             context.startActivity(mapIntent)
-        } catch (e: ActivityNotFoundException) {
-            val fallbackIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+        } catch (_: ActivityNotFoundException) {
+            val fallbackIntent = Intent(Intent.ACTION_VIEW, fallbackUri).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(fallbackIntent)

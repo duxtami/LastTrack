@@ -7,6 +7,7 @@ import LastTrack.duxtami.app.ui.importflow.ImportEvent
 import LastTrack.duxtami.app.ui.importflow.ImportHost
 import LastTrack.duxtami.app.ui.importflow.ImportViewModel
 import LastTrack.duxtami.app.ui.maps.MapsScreen
+import LastTrack.duxtami.app.ui.places.SavedPlacesScreen
 import LastTrack.duxtami.app.ui.routes.RoutesScreen
 import LastTrack.duxtami.app.ui.settings.SettingsScreen
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,12 +25,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Route
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -65,6 +64,7 @@ object Routes {
     const val ROUTES = "routes"
     const val MAPS_PATTERN = "maps?routeId={routeId}"
     const val MAPS = "maps"
+    const val SAVED = "saved"
     const val SETTINGS = "settings"
     const val DETAILS_PATTERN = "details/{routeId}"
 
@@ -81,11 +81,11 @@ private data class TopLevel(
     val selectedIcon: ImageVector,
 )
 
+// Exactly 3 bottom navigation tabs: Home, Maps, and Saved Places
 private val topLevelDestinations = listOf(
     TopLevel(Routes.HOME, Routes.HOME, R.string.nav_home, Icons.Outlined.Home, Icons.Filled.Home),
-    TopLevel(Routes.ROUTES_PATTERN, Routes.ROUTES, R.string.nav_routes, Icons.Outlined.Route, Icons.Filled.Route),
     TopLevel(Routes.MAPS_PATTERN, Routes.MAPS, R.string.nav_maps, Icons.Outlined.Map, Icons.Filled.Map),
-    TopLevel(Routes.SETTINGS, Routes.SETTINGS, R.string.nav_settings, Icons.Outlined.Settings, Icons.Filled.Settings),
+    TopLevel(Routes.SAVED, Routes.SAVED, R.string.nav_saved_places, Icons.Outlined.Place, Icons.Filled.Place),
 )
 
 private val importMimeTypes = arrayOf(
@@ -95,7 +95,6 @@ private val importMimeTypes = arrayOf(
     "application/xml",
     "text/xml",
     "application/zip",
-    // Many providers report GPX/KML/KMZ files as generic binary; the real format is verified after picking.
     "application/octet-stream",
 )
 
@@ -171,8 +170,6 @@ fun LastTrackApp(importViewModel: ImportViewModel = hiltViewModel()) {
                 }
             },
         ) { padding ->
-            // Top-level screens consume system insets themselves (top bar) or via the bottom bar. With a rail
-            // there is no bottom bar, so the gesture/navigation bar inset is applied here instead.
             val insetModifier = when {
                 wide && showNav -> Modifier.navigationBarsPadding().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                 wide -> Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
@@ -201,9 +198,9 @@ private fun AppNavHost(navController: NavHostController, onImportClick: () -> Un
             HomeScreen(
                 onImportClick = onImportClick,
                 onOpenRoute = { navController.navigate(Routes.details(it)) },
-                onOpenRoutes = { navController.navigateTopLevel(Routes.ROUTES) },
+                onOpenRoutes = { navController.navigate(Routes.ROUTES) },
                 onOpenSearch = { navController.navigate(Routes.routesSearch()) { launchSingleTop = true } },
-                onOpenSettings = { navController.navigateTopLevel(Routes.SETTINGS) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(
@@ -220,7 +217,16 @@ private fun AppNavHost(navController: NavHostController, onImportClick: () -> Un
             Routes.MAPS_PATTERN,
             arguments = listOf(navArgument("routeId") { type = NavType.StringType; nullable = true; defaultValue = null }),
         ) { MapsScreen() }
-        composable(Routes.SETTINGS) { SettingsScreen() }
+        composable(Routes.SAVED) {
+            SavedPlacesScreen(
+                onOpenOnMap = { _, _, _ ->
+                    navController.navigateTopLevel(Routes.MAPS)
+                },
+            )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBack = { navController.popBackStack() })
+        }
         composable(
             Routes.DETAILS_PATTERN,
             arguments = listOf(navArgument("routeId") { type = NavType.StringType }),
