@@ -18,6 +18,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -55,15 +56,15 @@ class MapsViewModel @Inject constructor(
     val recordingManager: TrackRecordingManager,
 ) : ViewModel() {
     private val routeId: String? = savedStateHandle["routeId"]
-    private val activeRouteDismissed = MutableStateFlow(false)
+    private val activeRouteDismissed = MutableStateFlow<Boolean>(false)
 
     private val routeFlow: Flow<RouteSummary?> = combine(
-        routeId?.let { repository.observeRoute(it) } ?: flowOf(null),
+        routeId?.let { repository.observeRoute(it) } ?: flowOf<RouteSummary?>(null),
         activeRouteDismissed,
-    ) { route, dismissed -> if (dismissed) null else route }
+    ) { route: RouteSummary?, dismissed: Boolean -> if (dismissed) null else route }
 
     private val geometryFlow: Flow<RouteGeometry?> = combine(
-        flow {
+        flow<RouteGeometry?> {
             if (routeId != null) {
                 emit(repository.getRoutePoints(routeId))
             } else {
@@ -71,7 +72,7 @@ class MapsViewModel @Inject constructor(
             }
         },
         activeRouteDismissed,
-    ) { geom, dismissed -> if (dismissed) null else geom }
+    ) { geom: RouteGeometry?, dismissed: Boolean -> if (dismissed) null else geom }
 
 private data class RecordStateBundle(
     val status: RecordingStatus,
@@ -141,6 +142,8 @@ private data class RecordStateBundle(
     fun setParkedBike(note: String = "Parked Bike"): ParkedBikeReminder? =
         recordingManager.setParkedBike(note)
 
+    fun clearParkedBike() = recordingManager.clearParkedBike()
+
     fun clearActiveRoute() {
         activeRouteDismissed.value = true
     }
@@ -149,7 +152,7 @@ private data class RecordStateBundle(
         name: String,
         latitude: Double,
         longitude: Double,
-        category: LasTrack.duxtami.app.core.model.PlaceCategory = LasTrack.duxtami.app.core.model.PlaceCategory.STARRED,
+        category: LasTrack.duxtami.app.core.model.PlaceCategory = LasTrack.duxtami.app.core.model.PlaceCategory.FAVORITE,
         description: String? = null,
     ) {
         viewModelScope.launch {

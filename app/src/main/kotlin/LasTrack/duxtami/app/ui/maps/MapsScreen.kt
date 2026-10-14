@@ -64,6 +64,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Map
@@ -591,7 +592,7 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                                         name = place.title,
                                         latitude = place.latitude,
                                         longitude = place.longitude,
-                                        category = PlaceCategory.STARRED,
+                                        category = PlaceCategory.FAVORITE,
                                         description = place.address,
                                     )
                                     Toast.makeText(context, "Added to Saved Places", Toast.LENGTH_SHORT).show()

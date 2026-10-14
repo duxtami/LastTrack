@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.EditLocationAlt
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
@@ -71,6 +72,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -98,6 +100,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -433,13 +436,15 @@ private fun fetchAndSetCurrentLocation(context: Context, onLocation: (Double, Do
 
 @Composable
 fun categoryIcon(category: PlaceCategory): ImageVector = when (category) {
-    PlaceCategory.STARRED -> Icons.Filled.Star
     PlaceCategory.PARKING -> Icons.Filled.DirectionsBike
-    PlaceCategory.RESTAURANT -> Icons.Filled.Restaurant
-    PlaceCategory.GAS_STATION -> Icons.Filled.LocalGasStation
+    PlaceCategory.FAVORITE -> Icons.Filled.Star
     PlaceCategory.WORK -> Icons.Filled.Work
-    PlaceCategory.NATURE -> Icons.Filled.Park
-    PlaceCategory.OTHER -> Icons.Filled.Place
+    PlaceCategory.HOME -> Icons.Filled.Home
+    PlaceCategory.SCENIC -> Icons.Filled.Park
+    PlaceCategory.FOOD -> Icons.Filled.Restaurant
+    PlaceCategory.FUEL -> Icons.Filled.LocalGasStation
+    PlaceCategory.CAMPING -> Icons.Filled.Park
+    PlaceCategory.CUSTOM -> Icons.Filled.Place
 }
 
 @Composable
@@ -640,7 +645,7 @@ fun AddPlaceBottomSheet(
                 if (parsed != null) {
                     coordinatesInput = "${parsed.latitude}, ${parsed.longitude}"
                     if (name.isBlank() && !parsed.suggestedName.isNullOrBlank()) {
-                        name = parsed.suggestedName
+                        name = parsed.suggestedName.orEmpty()
                     }
                 }
                 isResolvingUrl = false
@@ -715,7 +720,7 @@ fun AddPlaceBottomSheet(
                                     if (parsed != null) {
                                         coordinatesInput = "${parsed.latitude}, ${parsed.longitude}"
                                         if (name.isBlank() && !parsed.suggestedName.isNullOrBlank()) {
-                                            name = parsed.suggestedName
+                                            name = parsed.suggestedName.orEmpty()
                                         }
                                     }
                                 }
