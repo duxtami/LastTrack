@@ -65,16 +65,15 @@ class MapsViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<MapsUiState> = combine(
-        preferences.preferences,
-        routeFlow,
-        geometryFlow,
-        recordingManager.status,
-        recordingManager.stats,
-        recordingManager.recordedPoints,
-        recordingManager.parkedBike,
-        recordingManager.currentLocation,
-    ) { prefs, route, geometry, status, stats, recPoints, parkedBike, curLoc ->
+private data class RecordStateBundle(
+    val status: RecordingStatus,
+    val stats: RecordingStats,
+    val recPoints: List<GeoPoint>,
+    val parkedBike: ParkedBikeReminder?,
+    val curLoc: GeoPoint?,
+)
+
+    private val baseMapFlow = combine(preferences.preferences, routeFlow, geometryFlow) { prefs, route, geometry ->
         val provider: MapProvider? = registry.get(prefs.mapProvider)
         MapsUiState(
             providers = registry.all.map { ProviderOption(it.id, it.availability) },
@@ -85,11 +84,26 @@ class MapsViewModel @Inject constructor(
             route = route,
             routeGeometry = geometry,
             preferences = prefs,
-            recordingStatus = status,
-            recordingStats = stats,
-            recordedPoints = recPoints,
-            parkedBike = parkedBike,
-            currentLocation = curLoc,
+        )
+    }
+
+    private val recordingStateFlow = combine(
+        recordingManager.status,
+        recordingManager.stats,
+        recordingManager.recordedPoints,
+        recordingManager.parkedBike,
+        recordingManager.currentLocation,
+    ) { status, stats, recPoints, parkedBike, curLoc ->
+        RecordStateBundle(status, stats, recPoints, parkedBike, curLoc)
+    }
+
+    val uiState: StateFlow<MapsUiState> = combine(baseMapFlow, recordingStateFlow) { base, rec ->
+        base.copy(
+            recordingStatus = rec.status,
+            recordingStats = rec.stats,
+            recordedPoints = rec.recPoints,
+            parkedBike = rec.parkedBike,
+            currentLocation = rec.curLoc,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MapsUiState())
 

@@ -378,9 +378,10 @@ fun PlaceItemCard(
             }
 
             // Description / Note if available
-            if (!place.description.isNullOrBlank()) {
+            val desc = place.description
+            if (!desc.isNullOrBlank()) {
                 Text(
-                    text = place.description,
+                    text = desc,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
@@ -489,7 +490,7 @@ fun AddPlaceBottomSheet(
                             // Try auto-filling name if Google Maps link
                             val parsed = CoordinateParser.parse(clip)
                             if (parsed?.suggestedName != null && name.isBlank()) {
-                                name = parsed.suggestedName
+                                name = parsed.suggestedName.orEmpty()
                             }
                         }
                     }) {

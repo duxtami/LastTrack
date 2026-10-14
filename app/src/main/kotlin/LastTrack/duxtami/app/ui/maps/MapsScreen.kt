@@ -972,7 +972,7 @@ fun LiveMapView(
         if (recordedPoints.size >= 2) {
             val recPolyline = Polyline(mapView).apply {
                 outlinePaint.color = android.graphics.Color.parseColor("#FF1744")
-                outlinePaint.strokeWidth = 6.dp * density
+                outlinePaint.strokeWidth = 6f * density
                 outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
                 outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
                 setPoints(recordedPoints.map { OsmGeoPoint(it.latitude, it.longitude) })
