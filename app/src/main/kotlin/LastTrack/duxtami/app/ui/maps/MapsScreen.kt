@@ -73,7 +73,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -113,7 +112,6 @@ fun availabilityText(availability: MapAvailability): String = stringResource(
 fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showProviders by remember { mutableStateOf(false) }
-    var showBasemaps by remember { mutableStateOf(false) }
     var activeMapView by remember { mutableStateOf<MapView?>(null) }
 
     Scaffold(
@@ -126,9 +124,10 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                 .padding(padding),
         ) {
             if (state.selectedAvailability is MapAvailability.Ready) {
-                // Interactive Ready Map (OpenStreetMap)
-                OsmMapView(
+                // Interactive Ready Map (Google Maps, Mapbox, ArcGIS, OpenStreetMap)
+                LiveMapView(
                     modifier = Modifier.fillMaxSize(),
+                    provider = state.selected,
                     basemapId = state.basemap?.id,
                     geometry = state.routeGeometry,
                     preferences = state.preferences,
@@ -277,7 +276,7 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                     }
                 }
             } else {
-                // Not configured screen (Google Maps / Mapbox / ArcGIS selected)
+                // Fallback (if any provider ever reports not configured)
                 Column(
                     modifier = Modifier
                         .widthIn(max = 720.dp)
@@ -329,22 +328,13 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                             )
-                            state.route?.let {
-                                Text(
-                                    stringResource(R.string.map_pending_route, it.name),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
-
-                            // Quick solution button: Switch to ready OpenStreetMap!
                             Button(
-                                onClick = { viewModel.selectProvider(MapProviderId.OPEN_STREET_MAP) },
+                                onClick = { viewModel.selectProvider(MapProviderId.GOOGLE_MAPS) },
                                 modifier = Modifier.padding(top = 8.dp),
                             ) {
                                 Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.size(8.dp))
-                                Text(stringResource(R.string.switch_to_osm))
+                                Text("Switch to Google Maps")
                             }
                         }
                     }
@@ -355,7 +345,11 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
 
     if (showProviders) {
         ModalBottomSheet(onDismissRequest = { showProviders = false }, sheetState = rememberModalBottomSheetState()) {
-            Column(Modifier.padding(bottom = 24.dp)) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 32.dp),
+            ) {
                 Text(
                     stringResource(R.string.map_provider),
                     style = MaterialTheme.typography.titleLarge,
@@ -379,17 +373,17 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                         RadioButton(selected = option.id == state.selected, onClick = null)
                         Spacer(Modifier.size(16.dp))
                         Column {
-                            Text(providerName(option.id), style = MaterialTheme.typography.bodyLarge)
+                            Text(providerName(option.id), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             Text(
                                 availabilityText(option.availability),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (option.availability is MapAvailability.Ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.primary,
                             )
                         }
                     }
                 }
 
-                if (state.availableBasemaps.size > 1) {
+                if (state.availableBasemaps.isNotEmpty()) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                     Text(
                         stringResource(R.string.basemap_select),
@@ -423,8 +417,9 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun OsmMapView(
+fun LiveMapView(
     modifier: Modifier = Modifier,
+    provider: MapProviderId,
     basemapId: String?,
     geometry: RouteGeometry?,
     preferences: AppPreferences,
@@ -460,12 +455,8 @@ fun OsmMapView(
         }
     }
 
-    LaunchedEffect(basemapId) {
-        val tileSource = when (basemapId) {
-            "opentopo" -> TileSourceFactory.OpenTopo
-            "usgs_topo" -> TileSourceFactory.USGS_TOPO
-            else -> TileSourceFactory.MAPNIK
-        }
+    LaunchedEffect(provider, basemapId) {
+        val tileSource = MapTileSources.resolve(provider, basemapId)
         mapView.setTileSource(tileSource)
         mapView.invalidate()
     }
