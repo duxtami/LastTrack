@@ -15,6 +15,7 @@ coroutines = "1.9.0"
 junit = "4.13.2"
 kxml2 = "2.3.0"
 xmlpull = "1.1.3.1"
+osmdroid = "6.1.20"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -41,6 +42,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 junit = { module = "junit:junit", version.ref = "junit" }
 xmlpull = { module = "xmlpull:xmlpull", version.ref = "xmlpull" }
 kxml2 = { module = "net.sf.kxml:kxml2", version.ref = "kxml2" }
+osmdroid = { module = "org.osmdroid:osmdroid-android", version.ref = "osmdroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.Flow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-enum class MapProviderId { GOOGLE_MAPS, MAPBOX, ARCGIS }
+enum class MapProviderId { OPEN_STREET_MAP, GOOGLE_MAPS, MAPBOX, ARCGIS }
 
 enum class RouteLineStyle { SOLID, DASHED }
 
@@ -16,7 +16,7 @@ data class AppPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val amoled: Boolean = false,
-    val mapProvider: MapProviderId = MapProviderId.GOOGLE_MAPS,
+    val mapProvider: MapProviderId = MapProviderId.OPEN_STREET_MAP,
     val basemapId: String = DEFAULT_BASEMAP_ID,
     val autoFitRoute: Boolean = true,
     val showStartEndMarkers: Boolean = true,

@@ -95,9 +95,11 @@
 
     <!-- Maps -->
     <string name="map_provider">Map provider</string>
+    <string name="provider_osm">OpenStreetMap</string>
     <string name="provider_google">Google Maps</string>
     <string name="provider_mapbox">Mapbox</string>
     <string name="provider_arcgis">ArcGIS</string>
+    <string name="provider_osm_requirement">an internet connection (no API key needed)</string>
     <string name="provider_google_requirement">a Google Maps API key</string>
     <string name="provider_mapbox_requirement">a Mapbox access token</string>
     <string name="provider_arcgis_requirement">an ArcGIS API key</string>
@@ -107,6 +109,11 @@
     <string name="provider_not_configured_title">%1$s isn\'t configured</string>
     <string name="provider_not_configured_message">Map rendering arrives in a later release and needs %1$s. Until then your routes, statistics and files work fully without a map.</string>
     <string name="map_pending_route">“%1$s” will open here once a map provider is configured.</string>
+    <string name="switch_to_osm">Switch to OpenStreetMap (Ready)</string>
+    <string name="fit_route">Fit to route</string>
+    <string name="basemap_select">Select style</string>
+    <string name="no_route_loaded_title">Explore Map</string>
+    <string name="no_route_loaded_hint">Pan and zoom freely. Select a route from Routes tab to view its GPS path.</string>
 
     <!-- Settings -->
     <string name="settings_appearance">Appearance</string>
