@@ -11,9 +11,6 @@ class ArcGisProvider : MapProvider {
     override val availability: MapAvailability = MapAvailability.Ready
 
     override val basemaps: List<BasemapStyle> = listOf(
-        BasemapStyle("default", "World Street"),
-        BasemapStyle("topographic", "World Topographic"),
-        BasemapStyle("imagery", "Hybrid Imagery (With Places)"),
-        BasemapStyle("natgeo", "National Geographic"),
+        BasemapStyle("default", "Hybrid Imagery (With Places)"),
     )
 }

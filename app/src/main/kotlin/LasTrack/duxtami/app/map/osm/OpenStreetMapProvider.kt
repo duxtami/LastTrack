@@ -16,7 +16,5 @@ class OpenStreetMapProvider : MapProvider {
 
     override val basemaps: List<BasemapStyle> = listOf(
         BasemapStyle("default", "Standard (Mapnik)"),
-        BasemapStyle("opentopo", "OpenTopoMap"),
-        BasemapStyle("usgs_topo", "USGS Topo"),
     )
 }

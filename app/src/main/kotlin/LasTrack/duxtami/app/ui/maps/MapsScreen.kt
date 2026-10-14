@@ -125,6 +125,8 @@ import org.osmdroid.views.overlay.FolderOverlay
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.tileprovider.MapTileProviderBasic
+import org.osmdroid.views.overlay.TilesOverlay
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
@@ -949,8 +951,14 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                         Spacer(Modifier.size(16.dp))
                         Column {
                             Text(providerName(option.id), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                            val styleDesc = when (option.id) {
+                                MapProviderId.OPEN_STREET_MAP -> "Standard (Mapnik)"
+                                MapProviderId.GOOGLE_MAPS -> "Satellite (With Places)"
+                                MapProviderId.MAPBOX -> "Satellite (With Places)"
+                                MapProviderId.ARCGIS -> "Hybrid Imagery (With Places)"
+                            }
                             Text(
-                                availabilityText(option.availability),
+                                styleDesc,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -958,7 +966,7 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                     }
                 }
 
-                if (state.availableBasemaps.isNotEmpty()) {
+                if (state.availableBasemaps.size > 1) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                     Text(
                         stringResource(R.string.basemap_select),
@@ -1103,6 +1111,7 @@ fun LiveMapView(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val dynamicOverlayFolder = remember { FolderOverlay() }
+    var labelTilesOverlay by remember { mutableStateOf<TilesOverlay?>(null) }
 
     val mapView = remember {
         MapView(context).apply {
@@ -1156,6 +1165,11 @@ fun LiveMapView(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            labelTilesOverlay?.let {
+                mapView.overlays.remove(it)
+                it.onDetach(mapView)
+            }
+            labelTilesOverlay = null
             lifecycleOwner.lifecycle.removeObserver(observer)
             mapView.onPause()
         }
@@ -1164,6 +1178,25 @@ fun LiveMapView(
     LaunchedEffect(provider, basemapId) {
         val tileSource = MapTileSources.resolve(provider, basemapId)
         mapView.setTileSource(tileSource)
+
+        labelTilesOverlay?.let {
+            mapView.overlays.remove(it)
+            it.onDetach(mapView)
+        }
+        labelTilesOverlay = null
+
+        val overlaySource = MapTileSources.resolveOverlay(provider, basemapId)
+        if (overlaySource != null) {
+            val tileProvider = MapTileProviderBasic(context, overlaySource)
+            val newOverlay = TilesOverlay(tileProvider, context).apply {
+                loadingBackgroundColor = android.graphics.Color.TRANSPARENT
+                loadingLineColor = android.graphics.Color.TRANSPARENT
+            }
+            val insertIdx = mapView.overlays.indexOf(dynamicOverlayFolder).let { if (it >= 0) it else 0 }
+            mapView.overlays.add(insertIdx, newOverlay)
+            labelTilesOverlay = newOverlay
+        }
+
         mapView.invalidate()
     }
 
