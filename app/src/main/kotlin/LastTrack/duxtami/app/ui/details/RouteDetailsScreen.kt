@@ -6,8 +6,9 @@ import LastTrack.duxtami.app.R
 import LastTrack.duxtami.app.core.model.RouteSummary
 import LastTrack.duxtami.app.ui.common.DeleteRouteDialog
 import LastTrack.duxtami.app.ui.common.EmptyState
-import LastTrack.duxtami.app.ui.common.Formatters
 import LastTrack.duxtami.app.ui.common.FormatBadge
+import LastTrack.duxtami.app.ui.common.Formatters
+import LastTrack.duxtami.app.ui.common.GoogleMapsLauncher
 import LastTrack.duxtami.app.ui.common.RenameRouteDialog
 import LastTrack.duxtami.app.ui.common.UiMessage
 import LastTrack.duxtami.app.ui.common.rememberRouteFileActions
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Schedule
@@ -45,6 +47,7 @@ import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,15 +64,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @Composable
 fun RouteDetailsScreen(
@@ -82,6 +87,8 @@ fun RouteDetailsScreen(
     val messageTexts = UiMessage.entries.associateWith { it.text() }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(messageTexts.getValue(it)) } }
 
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     val fileActions = rememberRouteFileActions(
@@ -89,6 +96,15 @@ fun RouteDetailsScreen(
         onExportToUri = { _, uri -> viewModel.export(uri) },
     )
     val loaded = state as? DetailsUiState.Loaded
+
+    val handleOpenInGoogleMaps = {
+        if (loaded != null) {
+            scope.launch {
+                val geometry = viewModel.getRouteGeometry()
+                GoogleMapsLauncher.openRoute(context, loaded.route.name, geometry)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -101,6 +117,9 @@ fun RouteDetailsScreen(
                 },
                 actions = {
                     if (loaded != null) {
+                        IconButton(onClick = { handleOpenInGoogleMaps() }) {
+                            Icon(Icons.Filled.Navigation, contentDescription = stringResource(R.string.open_in_google_maps))
+                        }
                         IconButton(onClick = { renaming = true }) {
                             Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.action_rename))
                         }
@@ -123,6 +142,7 @@ fun RouteDetailsScreen(
                 is DetailsUiState.Loaded -> DetailsContent(
                     route = s.route,
                     onOpenOnMap = { onOpenOnMap(s.route.id) },
+                    onOpenInGoogleMaps = handleOpenInGoogleMaps,
                     onExport = { fileActions.export(s.route) },
                     onShare = { fileActions.share(s.route) },
                     onDelete = { deleting = true },
@@ -153,6 +173,7 @@ private data class Metric(val icon: ImageVector, val label: Int, val value: Stri
 private fun DetailsContent(
     route: RouteSummary,
     onOpenOnMap: () -> Unit,
+    onOpenInGoogleMaps: () -> Unit,
     onExport: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
@@ -224,6 +245,13 @@ private fun DetailsContent(
             Spacer(Modifier.size(8.dp))
             Text(stringResource(R.string.open_on_map))
         }
+
+        FilledTonalButton(onClick = onOpenInGoogleMaps, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.size(8.dp))
+            Text(stringResource(R.string.open_in_google_maps))
+        }
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))

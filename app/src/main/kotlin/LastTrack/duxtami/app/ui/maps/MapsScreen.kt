@@ -9,6 +9,7 @@ import LastTrack.duxtami.app.core.model.MapProviderId
 import LastTrack.duxtami.app.core.model.RouteGeometry
 import LastTrack.duxtami.app.core.model.RouteLineStyle
 import LastTrack.duxtami.app.ui.common.Formatters
+import LastTrack.duxtami.app.ui.common.GoogleMapsLauncher
 import android.graphics.DashPathEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.Button
@@ -110,6 +112,7 @@ fun availabilityText(availability: MapAvailability): String = stringResource(
 
 @Composable
 fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showProviders by remember { mutableStateOf(false) }
     var activeMapView by remember { mutableStateOf<MapView?>(null) }
@@ -223,38 +226,60 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                 ) {
                     if (state.route != null) {
                         val s = state.route!!.stats
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = state.route!!.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Text(
-                                    Formatters.distance(s.distanceMeters),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold,
+                                    text = state.route!!.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
                                 )
-                                s.durationMillis?.let {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
                                     Text(
-                                        "•  ${Formatters.duration(it)}",
+                                        Formatters.distance(s.distanceMeters),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold,
                                     )
+                                    s.durationMillis?.let {
+                                        Text(
+                                            "•  ${Formatters.duration(it)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    s.elevationGainMeters?.let {
+                                        Text(
+                                            "•  ${Formatters.signedElevation(it, true)}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
-                                s.elevationGainMeters?.let {
-                                    Text(
-                                        "•  ${Formatters.signedElevation(it, true)}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
+                            }
+                            FilledTonalButton(
+                                onClick = {
+                                    GoogleMapsLauncher.openRoute(context, state.route!!.name, state.routeGeometry)
+                                },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(start = 12.dp),
+                            ) {
+                                Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.size(6.dp))
+                                Text(stringResource(R.string.google_maps_short), style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     } else {

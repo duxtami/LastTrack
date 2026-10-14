@@ -1,5 +1,6 @@
 package LastTrack.duxtami.app.ui.details
 
+import LastTrack.duxtami.app.core.model.RouteGeometry
 import LastTrack.duxtami.app.core.model.RouteRepository
 import LastTrack.duxtami.app.core.model.RouteSummary
 import LastTrack.duxtami.app.core.model.ShareRequest
@@ -27,7 +28,7 @@ sealed interface DetailsUiState {
 @HiltViewModel
 class RouteDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    repository: RouteRepository,
+    private val repository: RouteRepository,
     private val actions: RouteActions,
 ) : ViewModel() {
     val routeId: String = checkNotNull(savedStateHandle["routeId"])
@@ -50,4 +51,6 @@ class RouteDetailsViewModel @Inject constructor(
 
     suspend fun prepareShare(): ShareRequest? =
         actions.prepareShare(routeId).also { if (it == null) _messages.send(UiMessage.SHARE_FAILED) }
+
+    suspend fun getRouteGeometry(): RouteGeometry? = repository.getRoutePoints(routeId)
 }

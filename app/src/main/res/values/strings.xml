@@ -92,6 +92,8 @@
     <string name="elevation_unavailable">This file has no elevation data, so elevation statistics are not available.</string>
     <string name="file_section">Original file</string>
     <string name="open_on_map">Open on Map</string>
+    <string name="open_in_google_maps">Open in Official Google Maps</string>
+    <string name="google_maps_short">Google Maps</string>
 
     <!-- Maps -->
     <string name="map_provider">Map provider</string>
