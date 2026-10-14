@@ -13,3 +13,4 @@ build/
 *.jks
 *.apk
 *.aab
+build-apk-output/
