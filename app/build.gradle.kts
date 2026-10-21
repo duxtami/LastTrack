@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,41 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+val keystoreProperties = Properties().apply {
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
+}
+
+fun getSigningProperty(vararg keys: String): String? {
+    for (key in keys) {
+        val prop = (project.findProperty(key) as? String)
+            ?: keystoreProperties.getProperty(key)
+            ?: System.getenv(key)
+        if (!prop.isNullOrBlank()) {
+            return prop
+        }
+    }
+    return null
+}
+
+val releaseStoreFile = getSigningProperty("RELEASE_STORE_FILE", "storeFile", "KEYSTORE_FILE", "KEYSTORE_PATH")
+val releaseStorePassword = getSigningProperty("RELEASE_STORE_PASSWORD", "storePassword", "KEYSTORE_PASSWORD")
+val releaseKeyAlias = getSigningProperty("RELEASE_KEY_ALIAS", "keyAlias", "KEY_ALIAS")
+val releaseKeyPassword = getSigningProperty("RELEASE_KEY_PASSWORD", "keyPassword", "KEY_PASSWORD")
+
+val releaseKeyFile = releaseStoreFile?.let { path ->
+    val targetFile = file(path)
+    if (targetFile.isAbsolute) targetFile else rootProject.file(path)
+}
+
+val hasReleaseSigning = releaseKeyFile != null &&
+        releaseKeyFile.exists() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "LasTrack.duxtami.app"
@@ -18,11 +55,25 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        maybeCreate("release").apply {
+            if (hasReleaseSigning) {
+                storeFile = releaseKeyFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
