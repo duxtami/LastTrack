@@ -1464,9 +1464,9 @@ private fun createPersonDotBitmap(context: Context): Bitmap {
         color = android.graphics.Color.parseColor("#1A73E8")
     }
 
-    canvas.drawCircle(center, center, auraPaint)
-    canvas.drawCircle(center, center * 0.75f, whitePaint)
-    canvas.drawCircle(center, center * 0.52f, bluePaint)
+    canvas.drawCircle(center, center, center, auraPaint)
+    canvas.drawCircle(center, center, center * 0.75f, whitePaint)
+    canvas.drawCircle(center, center, center * 0.52f, bluePaint)
     return bitmap
 }
 
