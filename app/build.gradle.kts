@@ -33,8 +33,13 @@ val releaseKeyAlias = getSigningProperty("RELEASE_KEY_ALIAS", "keyAlias", "KEY_A
 val releaseKeyPassword = getSigningProperty("RELEASE_KEY_PASSWORD", "keyPassword", "KEY_PASSWORD")
 
 val releaseKeyFile = releaseStoreFile?.let { path ->
-    val targetFile = file(path)
-    if (targetFile.isAbsolute) targetFile else rootProject.file(path)
+    val f = java.io.File(path)
+    if (f.isAbsolute) {
+        f
+    } else {
+        val rootFile = rootProject.file(path)
+        if (rootFile.exists()) rootFile else file(path)
+    }
 }
 
 val hasReleaseSigning = releaseKeyFile != null &&
@@ -42,6 +47,10 @@ val hasReleaseSigning = releaseKeyFile != null &&
         !releaseStorePassword.isNullOrBlank() &&
         !releaseKeyAlias.isNullOrBlank() &&
         !releaseKeyPassword.isNullOrBlank()
+
+if (!releaseStoreFile.isNullOrBlank() && !hasReleaseSigning) {
+    logger.warn("Release signing configuration incomplete or file not found: path=$releaseStoreFile, resolved=${releaseKeyFile?.absolutePath}, exists=${releaseKeyFile?.exists()}")
+}
 
 android {
     namespace = "LasTrack.duxtami.app"
