@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Properties
 
 plugins {
@@ -33,7 +34,7 @@ val releaseKeyAlias = getSigningProperty("RELEASE_KEY_ALIAS", "keyAlias", "KEY_A
 val releaseKeyPassword = getSigningProperty("RELEASE_KEY_PASSWORD", "keyPassword", "KEY_PASSWORD")
 
 val releaseKeyFile = releaseStoreFile?.let { path ->
-    val f = java.io.File(path)
+    val f = File(path)
     if (f.isAbsolute) {
         f
     } else {
