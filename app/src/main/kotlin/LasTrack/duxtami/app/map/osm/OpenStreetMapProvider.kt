@@ -7,7 +7,7 @@ import LasTrack.duxtami.app.core.model.MapProviderId
 
 /**
  * OpenStreetMap provider powered by osmdroid.
- * Fully functional out of the box with zero API keys required.
+ * Features Standard (Mapnik), White / Light (Carto Positron), and Dark Mode (Carto Dark Matter).
  */
 class OpenStreetMapProvider : MapProvider {
     override val id: MapProviderId = MapProviderId.OPEN_STREET_MAP
@@ -16,5 +16,7 @@ class OpenStreetMapProvider : MapProvider {
 
     override val basemaps: List<BasemapStyle> = listOf(
         BasemapStyle("default", "Standard (Mapnik)"),
+        BasemapStyle("osm_white", "White / Light (Carto Positron)"),
+        BasemapStyle("osm_dark", "Dark Mode (Carto Dark Matter)"),
     )
 }

@@ -16,7 +16,11 @@ import LasTrack.duxtami.app.ui.common.GoogleMapsLauncher
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.DashPathEffect
+import android.graphics.Paint
+import android.graphics.Path
 import android.location.LocationManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -169,7 +173,12 @@ data class SelectedMapPlace(
 )
 
 @Composable
-fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
+fun MapsScreen(
+    targetLat: Double? = null,
+    targetLon: Double? = null,
+    targetTitle: String? = null,
+    viewModel: MapsViewModel = hiltViewModel(),
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -188,6 +197,17 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
     var showSearchDialog by remember { mutableStateOf(false) }
     var selectedPlace by remember { mutableStateOf<SelectedMapPlace?>(null) }
 
+    // If navigated from Saved Places with target coordinates, auto-center and select
+    LaunchedEffect(targetLat, targetLon, activeMapView) {
+        if (targetLat != null && targetLon != null) {
+            selectedPlace = SelectedMapPlace(targetLat, targetLon, targetTitle ?: "Selected Location", "")
+            activeMapView?.controller?.let { ctrl ->
+                ctrl.animateTo(OsmGeoPoint(targetLat, targetLon))
+                ctrl.setZoom(17.5)
+            }
+        }
+    }
+
     // Handle system back: if route is loaded or place is selected, clear it
     BackHandler(enabled = state.route != null || selectedPlace != null) {
         if (selectedPlace != null) {
@@ -205,6 +225,7 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
         if (granted) {
             viewModel.recordingManager.startLocationUpdates()
             locationOverlayRef?.enableMyLocation()
+            locationOverlayRef?.enableCompass()
         }
     }
 
@@ -283,8 +304,8 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
             )
 
             // --- Top Floating Header Bar ---
-            // Left: Provider & Basemap Pill (NO "(change)" inner button!)
-            // Right: Search Icon + Open in Google Maps Icon
+            // Left: Provider & Basemap Pill (flex weight to prevent overlap)
+            // Right: Open in Google Maps Icon + Search Icon (with ideal spacing and dedicated surfaces)
             Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -294,16 +315,19 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Provider & Basemap Pill (Clean, whole pill is clickable)
+                // Provider & Basemap Pill (Clean, whole pill is clickable, cannot overlap right buttons)
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
-                    shadowElevation = 6.dp,
+                    shadowElevation = 5.dp,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .padding(end = 12.dp),
                 ) {
                     Row(
                         modifier = Modifier
                             .clickable { showProviders = true }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -311,40 +335,29 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                             Icons.Filled.Layers,
                             contentDescription = "Map Style",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                         )
                         Text(
                             text = "${providerName(state.selected)} · ${state.basemap?.name ?: "Default"}",
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
 
-                // Top Right Action Buttons: Search + Open in Google Maps
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
-                    shadowElevation = 6.dp,
+                // Top Right Action Buttons: Open in Google Maps + Search (No overlaps, ideal distance)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    // Open in Google Maps Button (Available on all selected maps)
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
+                        shadowElevation = 5.dp,
                     ) {
-                        // Search Button (Search any place like Google Maps)
-                        IconButton(
-                            onClick = { showSearchDialog = true },
-                            modifier = Modifier.size(40.dp),
-                        ) {
-                            Icon(
-                                Icons.Filled.Search,
-                                contentDescription = "Search places",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-
-                        // Open in Google Maps Button
                         IconButton(
                             onClick = {
                                 if (state.route != null) {
@@ -356,11 +369,30 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                                     GoogleMapsLauncher.openCoordinates(context, lat, lon, "Location")
                                 }
                             },
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(42.dp),
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.OpenInNew,
                                 contentDescription = stringResource(R.string.action_open_google_maps),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+
+                    // Search Button (Search any place)
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
+                        shadowElevation = 5.dp,
+                    ) {
+                        IconButton(
+                            onClick = { showSearchDialog = true },
+                            modifier = Modifier.size(42.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = "Search places",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -952,10 +984,10 @@ fun MapsScreen(viewModel: MapsViewModel = hiltViewModel()) {
                         Column {
                             Text(providerName(option.id), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             val styleDesc = when (option.id) {
-                                MapProviderId.OPEN_STREET_MAP -> "Standard (Mapnik)"
-                                MapProviderId.GOOGLE_MAPS -> "Satellite (With Places)"
-                                MapProviderId.MAPBOX -> "Satellite (With Places)"
-                                MapProviderId.ARCGIS -> "Hybrid Imagery (With Places)"
+                                MapProviderId.OPEN_STREET_MAP -> "Standard, White & Dark styles"
+                                MapProviderId.GOOGLE_MAPS -> "Satellite Hybrid HD, Streets & Terrain"
+                                MapProviderId.MAPBOX -> "Outdoors & Streets (Rich POIs)"
+                                MapProviderId.ARCGIS -> "Official World Streets & Topo"
                             }
                             Text(
                                 styleDesc,
@@ -1110,8 +1142,20 @@ fun LiveMapView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    LaunchedEffect(Unit) {
+        org.osmdroid.config.Configuration.getInstance().apply {
+            tileDownloadThreads = 8
+            tileDownloadMaxQueueSize = 80
+            cacheMapTileCount = 36
+        }
+    }
+
+    val arrowBitmap = remember(context) { createNavigationArrowBitmap(context) }
+    val dotBitmap = remember(context) { createPersonDotBitmap(context) }
+
     val dynamicOverlayFolder = remember { FolderOverlay() }
     var labelTilesOverlay by remember { mutableStateOf<TilesOverlay?>(null) }
+    var locOverlayRef by remember { mutableStateOf<MyLocationNewOverlay?>(null) }
 
     val mapView = remember {
         MapView(context).apply {
@@ -1141,11 +1185,17 @@ fun LiveMapView(
             })
             overlays.add(eventsOverlay)
 
-            // 3. Live MyLocation Overlay
+            // 3. Live MyLocation Overlay with compass heading rotation
             val locOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), this).apply {
+                setDirectionIcon(arrowBitmap)
+                setPersonIcon(dotBitmap)
+                setDirectionAnchor(0.5f, 0.5f)
+                setPersonAnchor(0.5f, 0.5f)
                 enableMyLocation()
+                enableCompass()
             }
             overlays.add(locOverlay)
+            locOverlayRef = locOverlay
             onLocationOverlayCreated(locOverlay)
 
             // 4. Dynamic layers container (routes, tracks, pins)
@@ -1158,8 +1208,16 @@ fun LiveMapView(
     DisposableEffect(lifecycleOwner, mapView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_RESUME -> {
+                    mapView.onResume()
+                    locOverlayRef?.enableMyLocation()
+                    locOverlayRef?.enableCompass()
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    locOverlayRef?.disableCompass()
+                    locOverlayRef?.disableMyLocation()
+                    mapView.onPause()
+                }
                 else -> {}
             }
         }
@@ -1178,6 +1236,8 @@ fun LiveMapView(
     LaunchedEffect(provider, basemapId) {
         val tileSource = MapTileSources.resolve(provider, basemapId)
         mapView.setTileSource(tileSource)
+        // 512px HD tiles render at native retina sharpness (scale=false), 256px scale up for readability
+        mapView.isTilesScaledToDpi = (tileSource.tileSizePixels == 256)
 
         labelTilesOverlay?.let {
             mapView.overlays.remove(it)
@@ -1329,4 +1389,70 @@ private fun fitRoute(mapView: MapView, geometry: RouteGeometry?) {
     mapView.post {
         mapView.zoomToBoundingBox(box, true, 90)
     }
+}
+
+private fun createNavigationArrowBitmap(context: Context): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val size = (36 * density).toInt().coerceAtLeast(36)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = android.graphics.Color.parseColor("#1A73E8") // Google Maps navigation blue
+    }
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f * density
+        color = android.graphics.Color.WHITE
+    }
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = android.graphics.Color.parseColor("#33000000")
+    }
+
+    val shadowPath = Path().apply {
+        moveTo(size / 2f, size * 0.12f)
+        lineTo(size * 0.85f, size * 0.90f)
+        lineTo(size / 2f, size * 0.70f)
+        lineTo(size * 0.15f, size * 0.90f)
+        close()
+    }
+    val path = Path().apply {
+        moveTo(size / 2f, size * 0.09f)
+        lineTo(size * 0.85f, size * 0.87f)
+        lineTo(size / 2f, size * 0.67f)
+        lineTo(size * 0.15f, size * 0.87f)
+        close()
+    }
+    canvas.drawPath(shadowPath, shadowPaint)
+    canvas.drawPath(path, fillPaint)
+    canvas.drawPath(path, strokePaint)
+    return bitmap
+}
+
+private fun createPersonDotBitmap(context: Context): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val size = (28 * density).toInt().coerceAtLeast(28)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val center = size / 2f
+
+    val auraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = android.graphics.Color.parseColor("#334285F4")
+    }
+    val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = android.graphics.Color.WHITE
+    }
+    val bluePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = android.graphics.Color.parseColor("#1A73E8")
+    }
+
+    canvas.drawCircle(center, center, auraPaint)
+    canvas.drawCircle(center, center * 0.75f, whitePaint)
+    canvas.drawCircle(center, center * 0.52f, bluePaint)
+    return bitmap
 }

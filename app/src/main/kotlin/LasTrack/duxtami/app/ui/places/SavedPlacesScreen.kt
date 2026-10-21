@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package LasTrack.duxtami.app.ui.places
 
@@ -18,9 +18,11 @@ import android.location.LocationManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +34,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,7 +46,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -53,12 +55,13 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditLocationAlt
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Photo
@@ -67,8 +70,9 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -84,7 +88,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -109,6 +112,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -128,7 +133,10 @@ fun SavedPlacesScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingPlace by remember { mutableStateOf<SavedPlace?>(null) }
+    var viewingPhoto by remember { mutableStateOf<Pair<String, String>?>(null) } // path to title
     var showActionChoiceSheet by remember { mutableStateOf(false) }
     var searchActive by remember { mutableStateOf(false) }
 
@@ -208,7 +216,7 @@ fun SavedPlacesScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // Category Filter Chips
+            // Category & Custom Label Filter Chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -217,18 +225,34 @@ fun SavedPlacesScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
-                    selected = state.selectedCategory == null,
-                    onClick = { viewModel.setCategoryFilter(null) },
+                    selected = state.selectedFilter == null,
+                    onClick = { viewModel.setFilter(null) },
                     label = { Text(stringResource(R.string.all_categories)) },
                 )
                 PlaceCategory.entries.forEach { cat ->
                     FilterChip(
-                        selected = state.selectedCategory == cat,
-                        onClick = { viewModel.setCategoryFilter(if (state.selectedCategory == cat) null else cat) },
+                        selected = state.selectedFilter == cat.name || state.selectedFilter == cat.displayName,
+                        onClick = {
+                            val active = state.selectedFilter == cat.name || state.selectedFilter == cat.displayName
+                            viewModel.setFilter(if (active) null else cat.name)
+                        },
                         leadingIcon = {
                             Icon(categoryIcon(cat), contentDescription = null, modifier = Modifier.size(16.dp))
                         },
                         label = { Text(cat.displayName) },
+                    )
+                }
+                state.availableCustomLabels.forEach { customLabel ->
+                    FilterChip(
+                        selected = state.selectedFilter.equals(customLabel, ignoreCase = true),
+                        onClick = {
+                            val active = state.selectedFilter.equals(customLabel, ignoreCase = true)
+                            viewModel.setFilter(if (active) null else customLabel)
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Label, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text(customLabel) },
                     )
                 }
             }
@@ -255,7 +279,7 @@ fun SavedPlacesScreen(
                             }
                         }
                         Text(
-                            text = if (state.searchQuery.isNotBlank() || state.selectedCategory != null) {
+                            text = if (state.searchQuery.isNotBlank() || state.selectedFilter != null) {
                                 stringResource(R.string.no_matching_places)
                             } else {
                                 stringResource(R.string.no_saved_places)
@@ -293,7 +317,9 @@ fun SavedPlacesScreen(
                             onOpenGoogleMaps = {
                                 GoogleMapsLauncher.openCoordinates(context, place.latitude, place.longitude, place.name)
                             },
+                            onEdit = { editingPlace = place },
                             onDelete = { viewModel.deletePlace(place.id) },
+                            onViewImage = { path -> viewingPhoto = path to place.name },
                         )
                     }
                 }
@@ -382,9 +408,16 @@ fun SavedPlacesScreen(
 
     // --- Add Place Form Dialog ---
     if (showAddDialog) {
-        AddPlaceBottomSheet(
+        PlaceFormBottomSheet(
+            title = stringResource(R.string.add_saved_place_title),
+            submitLabel = stringResource(R.string.save_location_button),
             initialCoords = initialCoords,
             initialName = initialName,
+            initialCategory = PlaceCategory.PARKING,
+            initialCustomLabel = null,
+            initialDesc = "",
+            initialImageUri = null,
+            availableCustomLabels = state.availableCustomLabels,
             onDismiss = {
                 showAddDialog = false
                 initialCoords = null
@@ -401,9 +434,10 @@ fun SavedPlacesScreen(
                     )
                 }
             },
-            onSave = { name, coords, category, desc, imgUri ->
+            onAddCustomLabel = viewModel::addCustomLabel,
+            onSubmit = { name, coords, category, customLabel, desc, imgUri, _ ->
                 scope.launch {
-                    val ok = viewModel.addPlaceAsync(name, coords, category, desc, imgUri)
+                    val ok = viewModel.addPlaceAsync(name, coords, category, customLabel, desc, imgUri)
                     if (ok) {
                         Toast.makeText(context, R.string.place_saved_success, Toast.LENGTH_SHORT).show()
                         showAddDialog = false
@@ -414,6 +448,55 @@ fun SavedPlacesScreen(
                     }
                 }
             },
+        )
+    }
+
+    // --- Edit Place Form Dialog ---
+    editingPlace?.let { place ->
+        PlaceFormBottomSheet(
+            title = "Edit Place",
+            submitLabel = "Save Changes",
+            initialCoords = "${place.latitude}, ${place.longitude}",
+            initialName = place.name,
+            initialCategory = place.category,
+            initialCustomLabel = place.customLabel,
+            initialDesc = place.description.orEmpty(),
+            initialImageUri = place.imagePath,
+            availableCustomLabels = state.availableCustomLabels,
+            onDismiss = { editingPlace = null },
+            onRequestLocation = { onLocationReady ->
+                fetchAndSetCurrentLocation(context, onLocationReady)
+            },
+            onAddCustomLabel = viewModel::addCustomLabel,
+            onSubmit = { name, coords, category, customLabel, desc, imgUri, removeImg ->
+                scope.launch {
+                    val ok = viewModel.updatePlaceAsync(
+                        id = place.id,
+                        name = name,
+                        rawCoordinates = coords,
+                        category = category,
+                        customLabel = customLabel,
+                        description = desc,
+                        imageUri = imgUri,
+                        removeImage = removeImg,
+                    )
+                    if (ok) {
+                        Toast.makeText(context, "Place updated successfully", Toast.LENGTH_SHORT).show()
+                        editingPlace = null
+                    } else {
+                        Toast.makeText(context, R.string.invalid_coordinates_error, Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+        )
+    }
+
+    // --- Full Image Viewer Dialog ---
+    viewingPhoto?.let { (imagePath, title) ->
+        PhotoViewerDialog(
+            imagePath = imagePath,
+            title = title,
+            onDismiss = { viewingPhoto = null },
         )
     }
 }
@@ -452,7 +535,9 @@ fun SavedPlaceCard(
     place: SavedPlace,
     onOpenOnMap: () -> Unit,
     onOpenGoogleMaps: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onViewImage: (path: String) -> Unit,
 ) {
     val context = LocalContext.current
     val coordsText = String.format(Locale.US, "%.5f, %.5f", place.latitude, place.longitude)
@@ -462,7 +547,12 @@ fun SavedPlaceCard(
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onOpenOnMap,
+                onLongClick = onEdit,
+            ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header: Category Icon + Title + Date
@@ -499,7 +589,7 @@ fun SavedPlaceCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "${place.category.displayName} · ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(place.createdAt))}",
+                            text = "${place.displayCategory} · ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(place.createdAt))}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -507,7 +597,7 @@ fun SavedPlaceCard(
                 }
             }
 
-            // Attached Photo thumbnail (if any)
+            // Attached Photo thumbnail (clickable to view full screen!)
             place.imagePath?.let { path ->
                 val bitmap = remember(path) {
                     runCatching {
@@ -517,15 +607,37 @@ fun SavedPlaceCard(
                 }
                 bitmap?.let { b ->
                     Spacer(Modifier.height(10.dp))
-                    Image(
-                        bitmap = b.asImageBitmap(),
-                        contentDescription = "Place Photo",
-                        contentScale = ContentScale.Crop,
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                    )
+                            .height(150.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onViewImage(path) },
+                    ) {
+                        Image(
+                            bitmap = b.asImageBitmap(),
+                            contentDescription = "Place Photo (Tap to view full screen)",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.55f),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                                .size(32.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Filled.ZoomIn,
+                                    contentDescription = "View photo",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -574,7 +686,7 @@ fun SavedPlaceCard(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
 
-            // Action Buttons
+            // Action Buttons: View on Map, Google Maps, Edit, Delete
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -600,43 +712,146 @@ fun SavedPlaceCard(
                     }
                 }
 
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp),
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = "Edit Place",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Dialog to view an attached place image full-screen with high clarity.
+ */
 @Composable
-fun AddPlaceBottomSheet(
+fun PhotoViewerDialog(
+    imagePath: String,
+    title: String,
+    onDismiss: () -> Unit,
+) {
+    val bitmap = remember(imagePath) {
+        runCatching {
+            val file = File(imagePath)
+            if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        }.getOrNull()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Header with title and close button
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 40.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+            }
+
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = title,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 80.dp),
+                )
+            } else {
+                Text("Image could not be loaded", color = Color.White)
+            }
+        }
+    }
+}
+
+/**
+ * Universal Place Form Sheet (Used for both Adding new place and Editing existing place).
+ */
+@Composable
+fun PlaceFormBottomSheet(
+    title: String,
+    submitLabel: String,
     initialCoords: String? = null,
     initialName: String? = null,
+    initialCategory: PlaceCategory = PlaceCategory.PARKING,
+    initialCustomLabel: String? = null,
+    initialDesc: String = "",
+    initialImageUri: String? = null,
+    availableCustomLabels: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onRequestLocation: ((latitude: Double, longitude: Double) -> Unit) -> Unit,
-    onSave: (name: String, coords: String, category: PlaceCategory, desc: String?, imgUri: String?) -> Unit,
+    onAddCustomLabel: (String) -> Unit,
+    onSubmit: (
+        name: String,
+        coords: String,
+        category: PlaceCategory,
+        customLabel: String?,
+        desc: String?,
+        imgUri: String?,
+        removeImage: Boolean,
+    ) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
     var name by remember { mutableStateOf(initialName.orEmpty()) }
     var coordinatesInput by remember { mutableStateOf(initialCoords.orEmpty()) }
-    var selectedCategory by remember { mutableStateOf(PlaceCategory.PARKING) }
-    var description by remember { mutableStateOf("") }
-    var selectedImageUri by remember { mutableStateOf<String?>(null) }
+    var selectedCategory by remember { mutableStateOf(initialCategory) }
+    var customLabelInput by remember { mutableStateOf(initialCustomLabel.orEmpty()) }
+    var isCustomSelected by remember { mutableStateOf(!initialCustomLabel.isNullOrBlank()) }
+    var description by remember { mutableStateOf(initialDesc) }
+    var selectedImageUri by remember { mutableStateOf(initialImageUri) }
+    var removeExistingImage by remember { mutableStateOf(false) }
     var isResolvingUrl by remember { mutableStateOf(false) }
+
+    // Dialog state for creating a new custom label
+    var showCreateLabelDialog by remember { mutableStateOf(false) }
+    var newLabelInput by remember { mutableStateOf("") }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             selectedImageUri = uri.toString()
+            removeExistingImage = false
         }
     }
 
-    // If initialCoords has a Google Maps link or short URL, resolve it asynchronously
+    // Resolve URL asynchronously if needed
     LaunchedEffect(initialCoords) {
         if (!initialCoords.isNullOrBlank()) {
             isResolvingUrl = true
@@ -666,7 +881,7 @@ fun AddPlaceBottomSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
-                text = stringResource(R.string.add_saved_place_title),
+                text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )
@@ -688,7 +903,7 @@ fun AddPlaceBottomSheet(
                 Text("Use Current GPS Location")
             }
 
-            // Place Name
+            // Place Name (Custom Name)
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -698,7 +913,7 @@ fun AddPlaceBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Coordinates input with Paste & MyLocation button
+            // Coordinates input with Paste button
             OutlinedTextField(
                 value = coordinatesInput,
                 onValueChange = { coordinatesInput = it },
@@ -733,26 +948,59 @@ fun AddPlaceBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Category Selector
-            Text(
-                text = stringResource(R.string.category_label),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
+            // Category & Custom Label Selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Category & Label",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                TextButton(onClick = { showCreateLabelDialog = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.size(4.dp))
+                    Text("+ New Label")
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // Standard categories
                 PlaceCategory.entries.forEach { cat ->
                     FilterChip(
-                        selected = selectedCategory == cat,
-                        onClick = { selectedCategory = cat },
+                        selected = !isCustomSelected && selectedCategory == cat,
+                        onClick = {
+                            selectedCategory = cat
+                            isCustomSelected = false
+                            customLabelInput = ""
+                        },
                         leadingIcon = {
                             Icon(categoryIcon(cat), contentDescription = null, modifier = Modifier.size(16.dp))
                         },
                         label = { Text(cat.displayName) },
+                    )
+                }
+
+                // Custom labels created by user
+                availableCustomLabels.forEach { customLbl ->
+                    FilterChip(
+                        selected = isCustomSelected && customLabelInput.equals(customLbl, ignoreCase = true),
+                        onClick = {
+                            selectedCategory = PlaceCategory.CUSTOM
+                            isCustomSelected = true
+                            customLabelInput = customLbl
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Label, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text(customLbl) },
                     )
                 }
             }
@@ -773,7 +1021,7 @@ fun AddPlaceBottomSheet(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )
-            if (selectedImageUri != null) {
+            if (selectedImageUri != null && !removeExistingImage) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -786,8 +1034,16 @@ fun AddPlaceBottomSheet(
                         Icon(Icons.Filled.Photo, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Text(stringResource(R.string.photo_attached), style = MaterialTheme.typography.bodyMedium)
                     }
-                    IconButton(onClick = { selectedImageUri = null }) {
-                        Icon(Icons.Filled.Clear, contentDescription = "Remove photo")
+                    Row {
+                        TextButton(onClick = { imagePicker.launch("image/*") }) {
+                            Text("Change")
+                        }
+                        IconButton(onClick = {
+                            selectedImageUri = null
+                            removeExistingImage = true
+                        }) {
+                            Icon(Icons.Filled.Clear, contentDescription = "Remove photo")
+                        }
                     }
                 }
             } else {
@@ -803,16 +1059,68 @@ fun AddPlaceBottomSheet(
 
             Spacer(Modifier.height(8.dp))
 
-            // Save Button
+            // Submit Button
             Button(
                 onClick = {
-                    onSave(name, coordinatesInput, selectedCategory, description, selectedImageUri)
+                    val finalCustomLabel = if (isCustomSelected) customLabelInput.trim().ifEmpty { null } else null
+                    onSubmit(
+                        name,
+                        coordinatesInput,
+                        selectedCategory,
+                        finalCustomLabel,
+                        description,
+                        selectedImageUri,
+                        removeExistingImage,
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = coordinatesInput.isNotBlank(),
             ) {
-                Text(stringResource(R.string.save_location_button))
+                Text(submitLabel)
             }
         }
+    }
+
+    // Modal prompt to create new custom label
+    if (showCreateLabelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateLabelDialog = false },
+            title = { Text("Create Custom Label") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Enter a unique label for organizing your places (e.g. Gym, Viewpoint, Secret Spot):")
+                    OutlinedTextField(
+                        value = newLabelInput,
+                        onValueChange = { newLabelInput = it },
+                        label = { Text("Label Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val trimmed = newLabelInput.trim()
+                        if (trimmed.isNotBlank()) {
+                            onAddCustomLabel(trimmed)
+                            selectedCategory = PlaceCategory.CUSTOM
+                            isCustomSelected = true
+                            customLabelInput = trimmed
+                            showCreateLabelDialog = false
+                            newLabelInput = ""
+                        }
+                    },
+                    enabled = newLabelInput.isNotBlank(),
+                ) {
+                    Text("Add Label")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateLabelDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }

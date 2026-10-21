@@ -62,7 +62,7 @@ object Routes {
     const val HOME = "home"
     const val ROUTES_PATTERN = "routes?search={search}"
     const val ROUTES = "routes"
-    const val MAPS_PATTERN = "maps?routeId={routeId}"
+    const val MAPS_PATTERN = "maps?routeId={routeId}&lat={lat}&lon={lon}&title={title}"
     const val MAPS = "maps"
     const val SAVED = "saved"
     const val SETTINGS = "settings"
@@ -111,6 +111,8 @@ private fun NavHostController.navigateTopLevel(target: String) {
 fun LasTrackApp(
     sharedPlaceInput: String? = null,
     onConsumeSharedPlace: () -> Unit = {},
+    sharedFileUri: String? = null,
+    onConsumeSharedFile: () -> Unit = {},
     importViewModel: ImportViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
@@ -120,6 +122,13 @@ fun LasTrackApp(
     LaunchedEffect(sharedPlaceInput) {
         if (!sharedPlaceInput.isNullOrBlank()) {
             navController.navigateTopLevel(Routes.SAVED)
+        }
+    }
+
+    LaunchedEffect(sharedFileUri) {
+        if (!sharedFileUri.isNullOrBlank()) {
+            importViewModel.import(sharedFileUri)
+            onConsumeSharedFile()
         }
     }
 
@@ -236,12 +245,31 @@ private fun AppNavHost(
         }
         composable(
             Routes.MAPS_PATTERN,
-            arguments = listOf(navArgument("routeId") { type = NavType.StringType; nullable = true; defaultValue = null }),
-        ) { MapsScreen() }
+            arguments = listOf(
+                navArgument("routeId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("lat") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("lon") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("title") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) { entry ->
+            val lat = entry.arguments?.getString("lat")?.toDoubleOrNull()
+            val lon = entry.arguments?.getString("lon")?.toDoubleOrNull()
+            val title = entry.arguments?.getString("title")?.let {
+                runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it)
+            }
+            MapsScreen(targetLat = lat, targetLon = lon, targetTitle = title)
+        }
         composable(Routes.SAVED) {
             SavedPlacesScreen(
-                onOpenOnMap = { _, _, _ ->
-                    navController.navigateTopLevel(Routes.MAPS)
+                onOpenOnMap = { lat, lon, name ->
+                    val encodedTitle = runCatching { java.net.URLEncoder.encode(name, "UTF-8") }.getOrDefault(name)
+                    navController.navigate("maps?lat=$lat&lon=$lon&title=$encodedTitle") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 sharedPlaceInput = sharedPlaceInput,
                 onConsumeSharedPlace = onConsumeSharedPlace,

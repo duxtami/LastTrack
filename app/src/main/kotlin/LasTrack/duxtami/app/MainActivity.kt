@@ -7,6 +7,8 @@ import LasTrack.duxtami.app.theme.LastTrackTheme
 import LasTrack.duxtami.app.theme.isDarkTheme
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -36,8 +38,15 @@ class MainViewModel @Inject constructor(preferences: PreferencesRepository) : Vi
     private val _sharedPlaceInput = MutableStateFlow<String?>(null)
     val sharedPlaceInput: StateFlow<String?> = _sharedPlaceInput
 
+    private val _sharedFileUri = MutableStateFlow<String?>(null)
+    val sharedFileUri: StateFlow<String?> = _sharedFileUri
+
     fun setSharedPlaceInput(input: String?) {
         _sharedPlaceInput.value = input
+    }
+
+    fun setSharedFileUri(uri: String?) {
+        _sharedFileUri.value = uri
     }
 }
 
@@ -61,7 +70,39 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent == null) return
-        val text = when (intent.action) {
+        val action = intent.action
+        val type = intent.type
+
+        // 1. Direct map file share / open (GPX, KML, KMZ, GeoJSON) via Share Sheet or file manager
+        if (action == Intent.ACTION_SEND) {
+            val streamUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+            } ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
+
+            if (streamUri != null) {
+                mainViewModel.setSharedFileUri(streamUri.toString())
+                return
+            }
+        } else if (action == Intent.ACTION_VIEW) {
+            val dataUri = intent.data
+            if (dataUri != null) {
+                val path = dataUri.path?.lowercase().orEmpty()
+                val isMapFile = path.endsWith(".gpx") || path.endsWith(".kml") ||
+                    path.endsWith(".kmz") || path.endsWith(".geojson") ||
+                    type?.contains("gpx") == true || type?.contains("kml") == true ||
+                    type?.contains("kmz") == true || type?.contains("octet-stream") == true
+                if (isMapFile) {
+                    mainViewModel.setSharedFileUri(dataUri.toString())
+                    return
+                }
+            }
+        }
+
+        // 2. Shared text / Google Maps URL / coordinates
+        val text = when (action) {
             Intent.ACTION_SEND -> {
                 intent.getStringExtra(Intent.EXTRA_TEXT)
                     ?: intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
@@ -80,9 +121,10 @@ class MainActivity : ComponentActivity() {
     private fun Root() {
         val prefs by mainViewModel.preferences.collectAsStateWithLifecycle()
         val sharedPlace by mainViewModel.sharedPlaceInput.collectAsStateWithLifecycle()
+        val sharedFile by mainViewModel.sharedFileUri.collectAsStateWithLifecycle()
         val p = prefs ?: return
         val dark = isDarkTheme(p.themeMode)
-        // The in-app theme choice can differ from the system's, so system bar icon colours follow it explicitly.
+
         DisposableEffect(dark) {
             enableEdgeToEdge(
                 statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
@@ -97,6 +139,8 @@ class MainActivity : ComponentActivity() {
             LasTrackApp(
                 sharedPlaceInput = sharedPlace,
                 onConsumeSharedPlace = { mainViewModel.setSharedPlaceInput(null) },
+                sharedFileUri = sharedFile,
+                onConsumeSharedFile = { mainViewModel.setSharedFileUri(null) },
             )
         }
     }

@@ -11,6 +11,8 @@ class GoogleMapProvider : MapProvider {
     override val availability: MapAvailability = MapAvailability.Ready
 
     override val basemaps: List<BasemapStyle> = listOf(
-        BasemapStyle("default", "Satellite (With Places)"),
+        BasemapStyle("default", "Satellite Hybrid (HD)"),
+        BasemapStyle("google_streets", "Streets / Roadmap (HD)"),
+        BasemapStyle("google_terrain", "Terrain (HD)"),
     )
 }

@@ -65,29 +65,46 @@ class SavedPlacesRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun SavedPlaceEntity.toDomain() = SavedPlace(
-        id = id,
-        name = name,
-        latitude = latitude,
-        longitude = longitude,
-        category = PlaceCategory.fromString(category),
-        description = description,
-        imagePath = imagePath,
-        isReminderActive = isReminderActive,
-        reminderNote = reminderNote,
-        createdAt = createdAt,
-    )
+    private fun SavedPlaceEntity.toDomain(): SavedPlace {
+        val (parsedCat, parsedCustom) = when {
+            category.startsWith("CUSTOM:") -> PlaceCategory.CUSTOM to category.removePrefix("CUSTOM:")
+            PlaceCategory.entries.any { it.name.equals(category, ignoreCase = true) } ->
+                PlaceCategory.fromString(category) to null
+            category.isNotBlank() -> PlaceCategory.CUSTOM to category
+            else -> PlaceCategory.CUSTOM to null
+        }
+        return SavedPlace(
+            id = id,
+            name = name,
+            latitude = latitude,
+            longitude = longitude,
+            category = parsedCat,
+            customLabel = parsedCustom,
+            description = description,
+            imagePath = imagePath,
+            isReminderActive = isReminderActive,
+            reminderNote = reminderNote,
+            createdAt = createdAt,
+        )
+    }
 
-    private fun SavedPlace.toEntity() = SavedPlaceEntity(
-        id = id,
-        name = name,
-        latitude = latitude,
-        longitude = longitude,
-        category = category.name,
-        description = description,
-        imagePath = imagePath,
-        isReminderActive = isReminderActive,
-        reminderNote = reminderNote,
-        createdAt = createdAt,
-    )
+    private fun SavedPlace.toEntity(): SavedPlaceEntity {
+        val catString = if (!customLabel.isNullOrBlank()) {
+            "CUSTOM:$customLabel"
+        } else {
+            category.name
+        }
+        return SavedPlaceEntity(
+            id = id,
+            name = name,
+            latitude = latitude,
+            longitude = longitude,
+            category = catString,
+            description = description,
+            imagePath = imagePath,
+            isReminderActive = isReminderActive,
+            reminderNote = reminderNote,
+            createdAt = createdAt,
+        )
+    }
 }

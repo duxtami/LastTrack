@@ -68,4 +68,23 @@ class CoordinateParserTest {
         assertEquals(77.2295097, parsed.longitude, 0.0001)
         assertEquals("India Gate", parsed.suggestedName)
     }
+
+    @Test
+    fun parsesGoogleMaps3d4dUrl() {
+        val url = "https://www.google.com/maps/place/Taj+Mahal/data=!4m2!3m1!1s0x0:0x0!8m2!3d27.1751448!4d78.0421422"
+        val parsed = CoordinateParser.parse(url)
+        assertNotNull(parsed)
+        assertEquals(27.1751448, parsed!!.latitude, 0.0001)
+        assertEquals(78.0421422, parsed.longitude, 0.0001)
+        assertEquals("Taj Mahal", parsed.suggestedName)
+    }
+
+    @Test
+    fun parsesGoogleMapsDestinationUrl() {
+        val url = "https://www.google.com/maps?daddr=28.6129,77.2295"
+        val parsed = CoordinateParser.parse(url)
+        assertNotNull(parsed)
+        assertEquals(28.6129, parsed!!.latitude, 0.0001)
+        assertEquals(77.2295, parsed.longitude, 0.0001)
+    }
 }

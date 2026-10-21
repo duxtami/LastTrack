@@ -24,9 +24,13 @@ data class SavedPlace(
     val latitude: Double,
     val longitude: Double,
     val category: PlaceCategory = PlaceCategory.CUSTOM,
+    val customLabel: String? = null,
     val description: String? = null,
     val imagePath: String? = null,
     val isReminderActive: Boolean = false,
     val reminderNote: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-)
+) {
+    val displayCategory: String
+        get() = if (!customLabel.isNullOrBlank()) customLabel else category.displayName
+}
