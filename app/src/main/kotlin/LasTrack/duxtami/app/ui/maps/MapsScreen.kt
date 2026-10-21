@@ -225,7 +225,6 @@ fun MapsScreen(
         if (granted) {
             viewModel.recordingManager.startLocationUpdates()
             locationOverlayRef?.enableMyLocation()
-            locationOverlayRef?.enableCompass()
         }
     }
 
@@ -1192,7 +1191,6 @@ fun LiveMapView(
                 setDirectionAnchor(0.5f, 0.5f)
                 setPersonAnchor(0.5f, 0.5f)
                 enableMyLocation()
-                enableCompass()
             }
             overlays.add(locOverlay)
             locOverlayRef = locOverlay
@@ -1205,16 +1203,30 @@ fun LiveMapView(
         }
     }
 
+    val orientationListener = remember(context) {
+        DeviceOrientationListener(context) { heading ->
+            locOverlayRef?.let { overlay ->
+                val last = overlay.lastFix
+                if (last != null) {
+                    val updated = android.location.Location(last).apply {
+                        bearing = heading
+                    }
+                    overlay.onLocationChanged(updated, null)
+                }
+            }
+        }
+    }
+
     DisposableEffect(lifecycleOwner, mapView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
                     mapView.onResume()
                     locOverlayRef?.enableMyLocation()
-                    locOverlayRef?.enableCompass()
+                    orientationListener.start()
                 }
                 Lifecycle.Event.ON_PAUSE -> {
-                    locOverlayRef?.disableCompass()
+                    orientationListener.stop()
                     locOverlayRef?.disableMyLocation()
                     mapView.onPause()
                 }
@@ -1223,6 +1235,7 @@ fun LiveMapView(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            orientationListener.stop()
             labelTilesOverlay?.let {
                 mapView.overlays.remove(it)
                 it.onDetach(mapView)
@@ -1455,4 +1468,45 @@ private fun createPersonDotBitmap(context: Context): Bitmap {
     canvas.drawCircle(center, center * 0.75f, whitePaint)
     canvas.drawCircle(center, center * 0.52f, bluePaint)
     return bitmap
+}
+
+/**
+ * Listens to device hardware rotation/orientation sensors to provide real-time compass heading
+ * for rotating the current location navigation arrow.
+ */
+class DeviceOrientationListener(
+    context: Context,
+    private val onHeadingChanged: (Float) -> Unit,
+) : android.hardware.SensorEventListener {
+    private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? android.hardware.SensorManager
+    @Suppress("DEPRECATION")
+    private val rotationSensor = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR)
+        ?: sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ORIENTATION)
+
+    fun start() {
+        rotationSensor?.let {
+            sensorManager?.registerListener(this, it, android.hardware.SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+
+    fun stop() {
+        sensorManager?.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: android.hardware.SensorEvent) {
+        if (event.sensor.type == android.hardware.Sensor.TYPE_ROTATION_VECTOR) {
+            val rotationMatrix = FloatArray(9)
+            android.hardware.SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+            val orientation = FloatArray(3)
+            android.hardware.SensorManager.getOrientation(rotationMatrix, orientation)
+            val azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
+            val heading = (azimuthDeg + 360f) % 360f
+            onHeadingChanged(heading)
+        } else {
+            val heading = (event.values[0] + 360f) % 360f
+            onHeadingChanged(heading)
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
 }
