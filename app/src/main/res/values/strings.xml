@@ -102,10 +102,14 @@
     <string name="provider_google">Google Maps</string>
     <string name="provider_mapbox">Mapbox</string>
     <string name="provider_arcgis">ArcGIS</string>
+    <string name="provider_maplibre">MapLibre</string>
+    <string name="provider_geoapify">Geoapify</string>
     <string name="provider_osm_requirement">an internet connection (no API key needed)</string>
-    <string name="provider_google_requirement">a Google Maps API key</string>
-    <string name="provider_mapbox_requirement">a Mapbox access token</string>
-    <string name="provider_arcgis_requirement">an ArcGIS API key</string>
+    <string name="provider_google_requirement">an internet connection (HD satellite &amp; dark mode)</string>
+    <string name="provider_mapbox_requirement">an internet connection (Satellite Hybrid)</string>
+    <string name="provider_arcgis_requirement">an internet connection (ArcGIS Satellite Hybrid)</string>
+    <string name="provider_maplibre_requirement">an internet connection (Liberty, Topo &amp; CyclOSM)</string>
+    <string name="provider_geoapify_requirement">an internet connection (OSM Bright &amp; Dark Matter)</string>
     <string name="availability_ready">Ready</string>
     <string name="availability_not_configured">Not configured</string>
     <string name="availability_unavailable">Unavailable</string>

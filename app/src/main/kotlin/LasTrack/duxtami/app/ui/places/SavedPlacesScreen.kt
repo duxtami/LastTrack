@@ -4,20 +4,24 @@ package LasTrack.duxtami.app.ui.places
 
 import LasTrack.duxtami.app.R
 import LasTrack.duxtami.app.core.model.CoordinateParser
+import LasTrack.duxtami.app.core.model.GeoPoint
 import LasTrack.duxtami.app.core.model.PlaceCategory
 import LasTrack.duxtami.app.core.model.SavedPlace
+import LasTrack.duxtami.app.core.parser.GeoMath
 import LasTrack.duxtami.app.ui.common.GoogleMapsLauncher
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.location.LocationManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -68,11 +72,13 @@ import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -83,6 +89,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -122,6 +129,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun SavedPlacesScreen(
@@ -139,6 +147,8 @@ fun SavedPlacesScreen(
     var viewingPhoto by remember { mutableStateOf<Pair<String, String>?>(null) } // path to title
     var showActionChoiceSheet by remember { mutableStateOf(false) }
     var searchActive by remember { mutableStateOf(false) }
+    var actionPlace by remember { mutableStateOf<SavedPlace?>(null) }
+    var placeToDelete by remember { mutableStateOf<SavedPlace?>(null) }
 
     var initialCoords by remember { mutableStateOf<String?>(null) }
     var initialName by remember { mutableStateOf<String?>(null) }
@@ -313,12 +323,12 @@ fun SavedPlacesScreen(
                     items(state.filteredPlaces, key = { it.id }) { place ->
                         SavedPlaceCard(
                             place = place,
+                            currentLocation = state.currentLocation,
                             onOpenOnMap = { onOpenOnMap(place.latitude, place.longitude, place.name) },
                             onOpenGoogleMaps = {
                                 GoogleMapsLauncher.openCoordinates(context, place.latitude, place.longitude, place.name)
                             },
-                            onEdit = { editingPlace = place },
-                            onDelete = { viewModel.deletePlace(place.id) },
+                            onOpenActions = { actionPlace = place },
                             onViewImage = { path -> viewingPhoto = path to place.name },
                         )
                     }
@@ -417,6 +427,7 @@ fun SavedPlacesScreen(
             initialCustomLabel = null,
             initialDesc = "",
             initialImageUri = null,
+            initialIconKey = null,
             availableCustomLabels = state.availableCustomLabels,
             onDismiss = {
                 showAddDialog = false
@@ -435,9 +446,9 @@ fun SavedPlacesScreen(
                 }
             },
             onAddCustomLabel = viewModel::addCustomLabel,
-            onSubmit = { name, coords, category, customLabel, desc, imgUri, _ ->
+            onSubmit = { name, coords, category, customLabel, desc, imgUri, _, iconKey ->
                 scope.launch {
-                    val ok = viewModel.addPlaceAsync(name, coords, category, customLabel, desc, imgUri)
+                    val ok = viewModel.addPlaceAsync(name, coords, category, customLabel, desc, imgUri, iconKey)
                     if (ok) {
                         Toast.makeText(context, R.string.place_saved_success, Toast.LENGTH_SHORT).show()
                         showAddDialog = false
@@ -462,13 +473,14 @@ fun SavedPlacesScreen(
             initialCustomLabel = place.customLabel,
             initialDesc = place.description.orEmpty(),
             initialImageUri = place.imagePath,
+            initialIconKey = place.iconKey,
             availableCustomLabels = state.availableCustomLabels,
             onDismiss = { editingPlace = null },
             onRequestLocation = { onLocationReady ->
                 fetchAndSetCurrentLocation(context, onLocationReady)
             },
             onAddCustomLabel = viewModel::addCustomLabel,
-            onSubmit = { name, coords, category, customLabel, desc, imgUri, removeImg ->
+            onSubmit = { name, coords, category, customLabel, desc, imgUri, removeImg, iconKey ->
                 scope.launch {
                     val ok = viewModel.updatePlaceAsync(
                         id = place.id,
@@ -479,6 +491,7 @@ fun SavedPlacesScreen(
                         description = desc,
                         imageUri = imgUri,
                         removeImage = removeImg,
+                        iconKey = iconKey,
                     )
                     if (ok) {
                         Toast.makeText(context, "Place updated successfully", Toast.LENGTH_SHORT).show()
@@ -486,6 +499,63 @@ fun SavedPlacesScreen(
                     } else {
                         Toast.makeText(context, R.string.invalid_coordinates_error, Toast.LENGTH_LONG).show()
                     }
+                }
+            },
+        )
+    }
+
+    // --- Action Sheet on Long Press (Edit, Delete, Copy, Share) ---
+    actionPlace?.let { place ->
+        PlaceActionBottomSheet(
+            place = place,
+            onDismiss = { actionPlace = null },
+            onEdit = {
+                editingPlace = place
+                actionPlace = null
+            },
+            onDelete = {
+                placeToDelete = place
+                actionPlace = null
+            },
+            onCopyCoordinates = {
+                val coordsText = String.format(Locale.US, "%.5f, %.5f", place.latitude, place.longitude)
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Coordinates", coordsText))
+                Toast.makeText(context, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
+            },
+            onShare = {
+                val coordsText = String.format(Locale.US, "%.5f, %.5f", place.latitude, place.longitude)
+                val shareText = "${place.name}\n$coordsText\nhttps://maps.google.com/?q=${place.latitude},${place.longitude}"
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                    type = "text/plain"
+                }
+                context.startActivity(Intent.createChooser(sendIntent, "Share Location"))
+            },
+        )
+    }
+
+    // --- Confirm Delete Dialog ---
+    placeToDelete?.let { place ->
+        AlertDialog(
+            onDismissRequest = { placeToDelete = null },
+            title = { Text("Delete Place") },
+            text = { Text("Are you sure you want to delete \"${place.name}\"?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deletePlace(place.id)
+                        placeToDelete = null
+                        Toast.makeText(context, "Place deleted", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { placeToDelete = null }) {
+                    Text("Cancel")
                 }
             },
         )
@@ -533,14 +603,20 @@ fun categoryIcon(category: PlaceCategory): ImageVector = when (category) {
 @Composable
 fun SavedPlaceCard(
     place: SavedPlace,
+    currentLocation: GeoPoint?,
     onOpenOnMap: () -> Unit,
     onOpenGoogleMaps: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onOpenActions: () -> Unit,
     onViewImage: (path: String) -> Unit,
 ) {
     val context = LocalContext.current
     val coordsText = String.format(Locale.US, "%.5f, %.5f", place.latitude, place.longitude)
+
+    val distanceMeters = remember(place.latitude, place.longitude, currentLocation) {
+        currentLocation?.let { cur ->
+            GeoMath.haversineMeters(cur.latitude, cur.longitude, place.latitude, place.longitude)
+        }
+    }
 
     ElevatedCard(
         shape = RoundedCornerShape(20.dp),
@@ -551,11 +627,11 @@ fun SavedPlaceCard(
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onOpenOnMap,
-                onLongClick = onEdit,
+                onLongClick = onOpenActions,
             ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header: Category Icon + Title + Date
+            // Header: Category Icon + Title + Date + Live Distance Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -573,7 +649,7 @@ fun SavedPlaceCard(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                categoryIcon(place.category),
+                                PlaceIcons.resolve(place.iconKey, place.category),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp),
@@ -593,6 +669,38 @@ fun SavedPlaceCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+
+                // Live meter / kilometer distance badge
+                if (distanceMeters != null) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.NearMe,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            val distFormatted = if (distanceMeters < 1000) {
+                                "${distanceMeters.roundToInt()} m"
+                            } else {
+                                String.format(Locale.US, "%.1f km", distanceMeters / 1000.0)
+                            }
+                            Text(
+                                text = distFormatted,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 }
             }
@@ -684,52 +792,165 @@ fun SavedPlaceCard(
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Action Buttons: View on Map, Google Maps, Edit, Delete
+            // Action Buttons: View on Map, Google Maps (Edit and Delete moved to long-press sheet)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = onOpenOnMap,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Icon(Icons.Filled.Map, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.size(6.dp))
-                        Text(stringResource(R.string.view_on_map), style = MaterialTheme.typography.labelMedium)
-                    }
-
-                    OutlinedButton(
-                        onClick = onOpenGoogleMaps,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.size(6.dp))
-                        Text(stringResource(R.string.google_maps_short), style = MaterialTheme.typography.labelMedium)
-                    }
+                Button(
+                    onClick = onOpenOnMap,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Icon(Icons.Filled.Map, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text(stringResource(R.string.view_on_map), style = MaterialTheme.typography.labelMedium)
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onEdit) {
+                OutlinedButton(
+                    onClick = onOpenGoogleMaps,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text(stringResource(R.string.google_maps_short), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Bottom sheet displayed when user long-presses a saved place card.
+ * Provides actions to Edit, Copy coordinates, Share, or Delete.
+ */
+@Composable
+fun PlaceActionBottomSheet(
+    place: SavedPlace,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onCopyCoordinates: () -> Unit,
+    onShare: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Filled.Edit,
-                            contentDescription = "Edit Place",
+                            PlaceIcons.resolve(place.iconKey, place.category),
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Filled.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(24.dp),
                         )
                     }
                 }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(place.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        String.format(Locale.US, "%.5f, %.5f · %s", place.latitude, place.longitude, place.displayCategory),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onDismiss()
+                        onEdit()
+                    },
+            ) {
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    leadingContent = { Icon(Icons.Filled.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    headlineContent = { Text("Edit Place", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("Modify name, coordinates, category, icon, or note") },
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onDismiss()
+                        onCopyCoordinates()
+                    },
+            ) {
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    leadingContent = { Icon(Icons.Filled.ContentCopy, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
+                    headlineContent = { Text("Copy Coordinates", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text(String.format(Locale.US, "%.6f, %.6f", place.latitude, place.longitude)) },
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onDismiss()
+                        onShare()
+                    },
+            ) {
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    leadingContent = { Icon(Icons.Filled.Share, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                    headlineContent = { Text("Share Location", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("Share coordinates & Google Maps link to other apps") },
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onDismiss()
+                        onDelete()
+                    },
+            ) {
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    leadingContent = { Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    headlineContent = { Text("Delete Place", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Remove this place permanently from saved list") },
+                )
             }
         }
     }
@@ -813,6 +1034,7 @@ fun PlaceFormBottomSheet(
     initialCustomLabel: String? = null,
     initialDesc: String = "",
     initialImageUri: String? = null,
+    initialIconKey: String? = null,
     availableCustomLabels: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onRequestLocation: ((latitude: Double, longitude: Double) -> Unit) -> Unit,
@@ -825,6 +1047,7 @@ fun PlaceFormBottomSheet(
         desc: String?,
         imgUri: String?,
         removeImage: Boolean,
+        iconKey: String?,
     ) -> Unit,
 ) {
     val context = LocalContext.current
@@ -835,6 +1058,7 @@ fun PlaceFormBottomSheet(
     var selectedCategory by remember { mutableStateOf(initialCategory) }
     var customLabelInput by remember { mutableStateOf(initialCustomLabel.orEmpty()) }
     var isCustomSelected by remember { mutableStateOf(!initialCustomLabel.isNullOrBlank()) }
+    var selectedIconKey by remember { mutableStateOf(initialIconKey) }
     var description by remember { mutableStateOf(initialDesc) }
     var selectedImageUri by remember { mutableStateOf(initialImageUri) }
     var removeExistingImage by remember { mutableStateOf(false) }
@@ -1005,6 +1229,41 @@ fun PlaceFormBottomSheet(
                 }
             }
 
+            // Modern Material 3 Expressive Icon Selector
+            Text(
+                text = "Map Icon Style (Material 3)",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PlaceIcons.allIcons.forEach { item ->
+                    val isSelected = selectedIconKey == item.key
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable { selectedIconKey = if (isSelected) null else item.key },
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                item.icon,
+                                contentDescription = item.label,
+                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
             // Description / Note
             OutlinedTextField(
                 value = description,
@@ -1071,6 +1330,7 @@ fun PlaceFormBottomSheet(
                         description,
                         selectedImageUri,
                         removeExistingImage,
+                        selectedIconKey,
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),

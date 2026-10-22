@@ -30,6 +30,7 @@ data class SavedPlace(
     val isReminderActive: Boolean = false,
     val reminderNote: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    val iconKey: String? = null,
 ) {
     val displayCategory: String
         get() = if (!customLabel.isNullOrBlank()) customLabel else category.displayName

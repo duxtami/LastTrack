@@ -12,7 +12,6 @@ class GoogleMapProvider : MapProvider {
 
     override val basemaps: List<BasemapStyle> = listOf(
         BasemapStyle("default", "Satellite Hybrid (HD)"),
-        BasemapStyle("google_streets", "Streets / Roadmap (HD)"),
-        BasemapStyle("google_terrain", "Terrain (HD)"),
+        BasemapStyle("google_dark", "Dark Mode (HD)"),
     )
 }

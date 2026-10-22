@@ -16,4 +16,5 @@ data class SavedPlaceEntity(
     val isReminderActive: Boolean,
     val reminderNote: String?,
     val createdAt: Long,
+    val iconKey: String? = null,
 )

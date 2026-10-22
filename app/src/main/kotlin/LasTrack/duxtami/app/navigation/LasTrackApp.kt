@@ -1,6 +1,9 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package LasTrack.duxtami.app.navigation
 
 import LasTrack.duxtami.app.R
+import LasTrack.duxtami.app.core.model.CoordinateParser
 import LasTrack.duxtami.app.ui.details.RouteDetailsScreen
 import LasTrack.duxtami.app.ui.home.HomeScreen
 import LasTrack.duxtami.app.ui.importflow.ImportEvent
@@ -12,17 +15,25 @@ import LasTrack.duxtami.app.ui.routes.RoutesScreen
 import LasTrack.duxtami.app.ui.settings.SettingsScreen
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Place
@@ -30,6 +41,10 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -38,14 +53,23 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -57,6 +81,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.launch
+import java.net.URLEncoder
 
 object Routes {
     const val HOME = "home"
@@ -118,10 +144,14 @@ fun LasTrackApp(
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     val importState by importViewModel.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
+    var pendingSharedLocation by remember { mutableStateOf<String?>(null) }
+    var activePlaceForSavedTab by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(sharedPlaceInput) {
         if (!sharedPlaceInput.isNullOrBlank()) {
-            navController.navigateTopLevel(Routes.SAVED)
+            pendingSharedLocation = sharedPlaceInput
         }
     }
 
@@ -199,9 +229,100 @@ fun LasTrackApp(
                 AppNavHost(
                     navController = navController,
                     onImportClick = launchImport,
-                    sharedPlaceInput = sharedPlaceInput,
-                    onConsumeSharedPlace = onConsumeSharedPlace,
+                    sharedPlaceInput = activePlaceForSavedTab,
+                    onConsumeSharedPlace = { activePlaceForSavedTab = null },
                 )
+            }
+        }
+    }
+
+    // Modal Choice Sheet when a Google Maps link or location is shared
+    pendingSharedLocation?.let { input ->
+        ModalBottomSheet(
+            onDismissRequest = {
+                pendingSharedLocation = null
+                onConsumeSharedPlace()
+            },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Shared Location",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = input,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Spacer(Modifier.size(4.dp))
+
+                // 1. Save to Places
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            activePlaceForSavedTab = input
+                            pendingSharedLocation = null
+                            onConsumeSharedPlace()
+                            navController.navigateTopLevel(Routes.SAVED)
+                        },
+                ) {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = {
+                            Icon(Icons.Filled.BookmarkAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        headlineContent = { Text("Save to Places", fontWeight = FontWeight.Bold) },
+                        supportingContent = { Text("Save with custom name, M3 icon, category & notes") },
+                    )
+                }
+
+                // 2. View on Map
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val raw = input
+                            pendingSharedLocation = null
+                            onConsumeSharedPlace()
+                            scope.launch {
+                                val parsed = CoordinateParser.resolveAndParse(raw)
+                                if (parsed != null) {
+                                    val encTitle = URLEncoder.encode(parsed.suggestedName ?: "Shared Location", "UTF-8")
+                                    navController.navigate("maps?lat=${parsed.latitude}&lon=${parsed.longitude}&title=$encTitle") {
+                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                } else {
+                                    navController.navigateTopLevel(Routes.MAPS)
+                                }
+                            }
+                        },
+                ) {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = {
+                            Icon(Icons.Filled.Map, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        },
+                        headlineContent = { Text("View / Inspect on Map", fontWeight = FontWeight.Bold) },
+                        supportingContent = { Text("Pinpoint coordinates directly on the active map") },
+                    )
+                }
             }
         }
     }

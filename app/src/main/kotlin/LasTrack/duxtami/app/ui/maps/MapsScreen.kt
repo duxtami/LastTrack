@@ -143,6 +143,8 @@ fun providerName(id: MapProviderId): String = stringResource(
         MapProviderId.GOOGLE_MAPS -> R.string.provider_google
         MapProviderId.MAPBOX -> R.string.provider_mapbox
         MapProviderId.ARCGIS -> R.string.provider_arcgis
+        MapProviderId.MAPLIBRE -> R.string.provider_maplibre
+        MapProviderId.GEOAPIFY -> R.string.provider_geoapify
     },
 )
 
@@ -153,6 +155,8 @@ fun providerRequirement(id: MapProviderId): String = stringResource(
         MapProviderId.GOOGLE_MAPS -> R.string.provider_google_requirement
         MapProviderId.MAPBOX -> R.string.provider_mapbox_requirement
         MapProviderId.ARCGIS -> R.string.provider_arcgis_requirement
+        MapProviderId.MAPLIBRE -> R.string.provider_maplibre_requirement
+        MapProviderId.GEOAPIFY -> R.string.provider_geoapify_requirement
     },
 )
 
@@ -399,6 +403,16 @@ fun MapsScreen(
                     }
                 }
             }
+
+            // --- Live Tracking Stats Pill (MBCompass Style) ---
+            LiveTrackingStats(
+                distanceMeters = state.recordingStats.distanceMeters,
+                durationMillis = state.recordingStats.durationMillis,
+                recordingStatus = state.recordingStatus,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (state.route != null) 124.dp else 64.dp),
+            )
 
             // --- Top Loaded Route Chip / Dismiss Bar (if viewing an imported route) ---
             state.route?.let { route ->
@@ -983,10 +997,12 @@ fun MapsScreen(
                         Column {
                             Text(providerName(option.id), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             val styleDesc = when (option.id) {
-                                MapProviderId.OPEN_STREET_MAP -> "Standard, White & Dark styles"
-                                MapProviderId.GOOGLE_MAPS -> "Satellite Hybrid HD, Streets & Terrain"
-                                MapProviderId.MAPBOX -> "Outdoors & Streets (Rich POIs)"
-                                MapProviderId.ARCGIS -> "Official World Streets & Topo"
+                                MapProviderId.OPEN_STREET_MAP -> "Standard, Dark & White styles"
+                                MapProviderId.GOOGLE_MAPS -> "Satellite Hybrid (HD) & Dark Mode"
+                                MapProviderId.MAPBOX -> "Mapbox Satellite Hybrid (HD)"
+                                MapProviderId.ARCGIS -> "ArcGIS Satellite Hybrid (HD)"
+                                MapProviderId.MAPLIBRE -> "OpenTopoMap, CyclOSM & Mapnik"
+                                MapProviderId.GEOAPIFY -> "Geoapify Dark Matter, Bright & Positron"
                             }
                             Text(
                                 styleDesc,

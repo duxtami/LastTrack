@@ -169,6 +169,7 @@ class TrackRecordingManager @Inject constructor(
 
         startLocationUpdates()
         startTimer()
+        runCatching { TrackerService.start(context) }
         return true
     }
 
@@ -189,6 +190,7 @@ class TrackRecordingManager @Inject constructor(
     }
 
     fun stopAndDiscard() {
+        runCatching { TrackerService.stop(context) }
         _status.value = RecordingStatus.IDLE
         timerJob?.cancel()
         _recordedPoints.value = emptyList()

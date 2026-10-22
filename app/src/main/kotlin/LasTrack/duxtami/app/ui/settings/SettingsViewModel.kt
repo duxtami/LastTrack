@@ -5,6 +5,7 @@ import LasTrack.duxtami.app.core.map.MapProviderRegistry
 import LasTrack.duxtami.app.core.model.AppPreferences
 import LasTrack.duxtami.app.core.model.PreferencesRepository
 import LasTrack.duxtami.app.core.model.RouteRepository
+import LasTrack.duxtami.app.ui.settings.backup.BackupManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +29,7 @@ class SettingsViewModel @Inject constructor(
     private val preferences: PreferencesRepository,
     registry: MapProviderRegistry,
     repository: RouteRepository,
+    val backupManager: BackupManager,
 ) : ViewModel() {
     val uiState: StateFlow<SettingsUiState> = combine(preferences.preferences, repository.observeRoutes()) { prefs, routes ->
         SettingsUiState(

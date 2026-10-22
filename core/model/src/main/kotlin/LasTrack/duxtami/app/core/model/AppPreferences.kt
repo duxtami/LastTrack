@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.Flow
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-enum class MapProviderId { OPEN_STREET_MAP, GOOGLE_MAPS, MAPBOX, ARCGIS }
+enum class MapProviderId { OPEN_STREET_MAP, GOOGLE_MAPS, MAPBOX, ARCGIS, MAPLIBRE, GEOAPIFY }
 
 enum class RouteLineStyle { SOLID, DASHED }
 

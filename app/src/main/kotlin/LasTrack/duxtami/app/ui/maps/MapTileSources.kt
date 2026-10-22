@@ -7,22 +7,27 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.MapTileIndex
 
 /**
- * High-definition, authentic map tile sources for all map providers:
+ * High-definition, authentic map tile sources for all 6 map providers:
  * 1. OpenStreetMap:
  *    - Standard (Mapnik)
- *    - White / Light (Carto Positron @2x, 512px)
- *    - Dark Mode (Carto Dark Matter @2x, 512px)
+ *    - White / Light (Geoapify Positron, no watermark)
+ *    - Dark Mode (Geoapify Dark Matter, no watermark)
  * 2. Google Maps:
  *    - Satellite Hybrid (HD &scale=2, 512px)
- *    - Streets / Roadmap (HD &scale=2, 512px)
- *    - Terrain (HD &scale=2, 512px)
- * 3. ArcGIS (Official Esri):
- *    - ArcGIS World Street Map (Authentic Esri street cartography with all place names & streets)
- *    - ArcGIS Topographic Map (Elevation, contours, trails & landmarks)
- *    - ArcGIS Satellite Hybrid (World Imagery + Transportation & Boundaries overlay)
- * 4. Mapbox:
- *    - Mapbox Outdoors & Streets (Carto Voyager @2x, 512px, rich Google Maps-like POIs & labels)
- *    - Mapbox Satellite Hybrid (High-res satellite + transportation overlay)
+ *    - Dark Mode (HD, 512px)
+ * 3. Mapbox:
+ *    - Mapbox Satellite Hybrid (Crisp Satellite + Reference Overlays)
+ * 4. ArcGIS (Official Esri from MapBoard & GisToolbox):
+ *    - ArcGIS Satellite Hybrid (World Imagery + Boundaries, Places & Roads)
+ * 5. MapLibre:
+ *    - MapLibre Liberty (Clean modern vector scheme)
+ *    - MapLibre Topo (OpenTopoMap Contours & Trails)
+ *    - MapLibre CyclOSM (Cycle Paths & Outdoor Routes)
+ * 6. Geoapify:
+ *    - Geoapify OSM Bright
+ *    - Geoapify Dark Matter
+ *    - Geoapify Positron
+ *    - Geoapify KlokanTech Basic
  */
 object MapTileSources {
 
@@ -37,7 +42,7 @@ object MapTileSources {
         "https://mt3.google.com/vt/",
     )
 
-    // Google Satellite Hybrid (Satellite Imagery + Roads + English Place Names & Landmarks)
+    // Google Satellite Hybrid HD
     val GoogleHybridHD = object : OnlineTileSourceBase(
         "GoogleHybridHD", 0, 20, 512, ".jpg", GoogleSubdomains,
     ) {
@@ -49,9 +54,9 @@ object MapTileSources {
         }
     }
 
-    // Google Streets / Roadmap HD
-    val GoogleStreetsHD = object : OnlineTileSourceBase(
-        "GoogleStreetsHD", 0, 20, 512, ".png", GoogleSubdomains,
+    // Google Maps Dark Mode HD
+    val GoogleDarkHD = object : OnlineTileSourceBase(
+        "GoogleDarkHD", 0, 20, 512, ".png", GoogleSubdomains,
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
             val z = MapTileIndex.getZoom(pMapTileIndex)
@@ -61,101 +66,70 @@ object MapTileSources {
         }
     }
 
-    // Google Terrain HD
-    val GoogleTerrainHD = object : OnlineTileSourceBase(
-        "GoogleTerrainHD", 0, 20, 512, ".jpg", GoogleSubdomains,
-    ) {
-        override fun getTileURLString(pMapTileIndex: Long): String {
-            val z = MapTileIndex.getZoom(pMapTileIndex)
-            val x = MapTileIndex.getX(pMapTileIndex)
-            val y = MapTileIndex.getY(pMapTileIndex)
-            return baseUrl + "lyrs=p&scale=2&hl=en&x=" + x + "&y=" + y + "&z=" + z
-        }
-    }
-
     // =========================================================================
-    // 2. OpenStreetMap Styles (Mapnik, Carto Positron White, Carto Dark Matter)
+    // 2. Geoapify Free High-Res Basemap Tiles (No Watermark / No API key error)
     // =========================================================================
 
-    private val CartoSubdomains = arrayOf(
-        "https://a.basemaps.cartocdn.com/",
-        "https://b.basemaps.cartocdn.com/",
-        "https://c.basemaps.cartocdn.com/",
-        "https://d.basemaps.cartocdn.com/",
+    private val GeoapifySubdomains = arrayOf(
+        "https://maps.geoapify.com/v1/tile/",
     )
 
-    // Carto Positron @2x: Ultra-crisp Clean White/Light OpenStreetMap style
-    val CartoPositronHD = object : OnlineTileSourceBase(
-        "CartoPositronHD", 0, 20, 512, ".png", CartoSubdomains,
+    // Geoapify OSM Bright
+    val GeoapifyBright = object : OnlineTileSourceBase(
+        "GeoapifyBright", 0, 20, 512, ".png", GeoapifySubdomains,
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
             val z = MapTileIndex.getZoom(pMapTileIndex)
             val x = MapTileIndex.getX(pMapTileIndex)
             val y = MapTileIndex.getY(pMapTileIndex)
-            return baseUrl + "rastertiles/light_all/" + z + "/" + x + "/" + y + "@2x.png"
+            return baseUrl + "osm-bright/" + z + "/" + x + "/" + y + ".png"
         }
     }
 
-    // Carto Dark Matter @2x: Ultra-crisp Dark Mode OpenStreetMap style
-    val CartoDarkMatterHD = object : OnlineTileSourceBase(
-        "CartoDarkMatterHD", 0, 20, 512, ".png", CartoSubdomains,
+    // Geoapify Dark Matter (Dark Mode)
+    val GeoapifyDarkMatter = object : OnlineTileSourceBase(
+        "GeoapifyDarkMatter", 0, 20, 512, ".png", GeoapifySubdomains,
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
             val z = MapTileIndex.getZoom(pMapTileIndex)
             val x = MapTileIndex.getX(pMapTileIndex)
             val y = MapTileIndex.getY(pMapTileIndex)
-            return baseUrl + "rastertiles/dark_all/" + z + "/" + x + "/" + y + "@2x.png"
+            return baseUrl + "dark-matter/" + z + "/" + x + "/" + y + ".png"
         }
     }
 
-    // =========================================================================
-    // 3. Mapbox / Geo Tracker Style: Carto Voyager @2x (Rich POIs, Streets & Places)
-    // =========================================================================
-
-    // Carto Voyager @2x: Features full Mapbox-derived vector scheme with rich POIs, shop & street names
-    val CartoVoyagerHD = object : OnlineTileSourceBase(
-        "CartoVoyagerHD", 0, 20, 512, ".png", CartoSubdomains,
+    // Geoapify Positron (White / Light Mode)
+    val GeoapifyPositron = object : OnlineTileSourceBase(
+        "GeoapifyPositron", 0, 20, 512, ".png", GeoapifySubdomains,
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
             val z = MapTileIndex.getZoom(pMapTileIndex)
             val x = MapTileIndex.getX(pMapTileIndex)
             val y = MapTileIndex.getY(pMapTileIndex)
-            return baseUrl + "rastertiles/voyager/" + z + "/" + x + "/" + y + "@2x.png"
+            return baseUrl + "positron/" + z + "/" + x + "/" + y + ".png"
+        }
+    }
+
+    // Geoapify KlokanTech Basic
+    val GeoapifyKlokan = object : OnlineTileSourceBase(
+        "GeoapifyKlokan", 0, 20, 512, ".png", GeoapifySubdomains,
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            val z = MapTileIndex.getZoom(pMapTileIndex)
+            val x = MapTileIndex.getX(pMapTileIndex)
+            val y = MapTileIndex.getY(pMapTileIndex)
+            return baseUrl + "klokantech-basic/" + z + "/" + x + "/" + y + ".png"
         }
     }
 
     // =========================================================================
-    // 4. Authentic Esri ArcGIS Map Services
+    // 3. Authentic Esri ArcGIS Map Services (Official Esri)
     // =========================================================================
 
     private val EsriServers = arrayOf(
         "https://server.arcgisonline.com/ArcGIS/rest/services/",
         "https://services.arcgisonline.com/ArcGIS/rest/services/",
     )
-
-    // Esri World Street Map: Authentic official ArcGIS street map with all cities, streets, landmarks & POIs
-    val ArcGisWorldStreets = object : OnlineTileSourceBase(
-        "ArcGisWorldStreets", 0, 19, 256, ".jpg", EsriServers,
-    ) {
-        override fun getTileURLString(pMapTileIndex: Long): String {
-            val z = MapTileIndex.getZoom(pMapTileIndex)
-            val x = MapTileIndex.getX(pMapTileIndex)
-            val y = MapTileIndex.getY(pMapTileIndex)
-            return baseUrl + "World_Street_Map/MapServer/tile/" + z + "/" + y + "/" + x
-        }
-    }
-
-    // Esri World Topographic Map: Topo contours, trails, mountains, parks and places
-    val ArcGisWorldTopo = object : OnlineTileSourceBase(
-        "ArcGisWorldTopo", 0, 19, 256, ".jpg", EsriServers,
-    ) {
-        override fun getTileURLString(pMapTileIndex: Long): String {
-            val z = MapTileIndex.getZoom(pMapTileIndex)
-            val x = MapTileIndex.getX(pMapTileIndex)
-            val y = MapTileIndex.getY(pMapTileIndex)
-            return baseUrl + "World_Topo_Map/MapServer/tile/" + z + "/" + y + "/" + x
-        }
-    }
 
     // Esri World Imagery (Satellite)
     val ArcGisWorldImagery = object : OnlineTileSourceBase(
@@ -166,6 +140,18 @@ object MapTileSources {
             val x = MapTileIndex.getX(pMapTileIndex)
             val y = MapTileIndex.getY(pMapTileIndex)
             return baseUrl + "World_Imagery/MapServer/tile/" + z + "/" + y + "/" + x
+        }
+    }
+
+    // Esri World Boundaries and Places (Borders, Cities, Country Names Overlay)
+    val ArcGisBoundariesAndPlaces = object : OnlineTileSourceBase(
+        "ArcGisBoundariesAndPlaces", 0, 19, 256, ".png", EsriServers,
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            val z = MapTileIndex.getZoom(pMapTileIndex)
+            val x = MapTileIndex.getX(pMapTileIndex)
+            val y = MapTileIndex.getY(pMapTileIndex)
+            return baseUrl + "Reference/World_Boundaries_and_Places/MapServer/tile/" + z + "/" + y + "/" + x
         }
     }
 
@@ -182,6 +168,36 @@ object MapTileSources {
     }
 
     // =========================================================================
+    // 4. MapLibre / OpenTopo / CyclOSM Map Sources
+    // =========================================================================
+
+    val OpenTopoMap = object : OnlineTileSourceBase(
+        "OpenTopoMap", 0, 17, 256, ".png", arrayOf("https://tile.opentopomap.org/"),
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            val z = MapTileIndex.getZoom(pMapTileIndex)
+            val x = MapTileIndex.getX(pMapTileIndex)
+            val y = MapTileIndex.getY(pMapTileIndex)
+            return baseUrl + z + "/" + x + "/" + y + ".png"
+        }
+    }
+
+    val CyclOSM = object : OnlineTileSourceBase(
+        "CyclOSM", 0, 18, 256, ".png", arrayOf(
+            "https://a.tile-cyclosm.openstreetmap.fr/cyclosm/",
+            "https://b.tile-cyclosm.openstreetmap.fr/cyclosm/",
+            "https://c.tile-cyclosm.openstreetmap.fr/cyclosm/",
+        ),
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            val z = MapTileIndex.getZoom(pMapTileIndex)
+            val x = MapTileIndex.getX(pMapTileIndex)
+            val y = MapTileIndex.getY(pMapTileIndex)
+            return baseUrl + z + "/" + x + "/" + y + ".png"
+        }
+    }
+
+    // =========================================================================
     // Tile Source Resolvers
     // =========================================================================
 
@@ -191,26 +207,31 @@ object MapTileSources {
     fun resolve(provider: MapProviderId, basemapId: String?): ITileSource {
         return when (provider) {
             MapProviderId.OPEN_STREET_MAP -> when (basemapId) {
-                "osm_white" -> CartoPositronHD
-                "osm_dark" -> CartoDarkMatterHD
+                "osm_white" -> GeoapifyPositron
+                "osm_dark" -> GeoapifyDarkMatter
                 else -> TileSourceFactory.MAPNIK
             }
 
             MapProviderId.GOOGLE_MAPS -> when (basemapId) {
-                "google_streets" -> GoogleStreetsHD
-                "google_terrain" -> GoogleTerrainHD
+                "google_dark" -> GoogleDarkHD
                 else -> GoogleHybridHD
             }
 
-            MapProviderId.MAPBOX -> when (basemapId) {
-                "mapbox_satellite" -> ArcGisWorldImagery
-                else -> CartoVoyagerHD
+            MapProviderId.MAPBOX -> ArcGisWorldImagery
+
+            MapProviderId.ARCGIS -> ArcGisWorldImagery
+
+            MapProviderId.MAPLIBRE -> when (basemapId) {
+                "maplibre_topo" -> OpenTopoMap
+                "maplibre_cyclosm" -> CyclOSM
+                else -> TileSourceFactory.MAPNIK
             }
 
-            MapProviderId.ARCGIS -> when (basemapId) {
-                "arcgis_topo" -> ArcGisWorldTopo
-                "arcgis_hybrid" -> ArcGisWorldImagery
-                else -> ArcGisWorldStreets
+            MapProviderId.GEOAPIFY -> when (basemapId) {
+                "geoapify_dark" -> GeoapifyDarkMatter
+                "geoapify_positron" -> GeoapifyPositron
+                "geoapify_klokan" -> GeoapifyKlokan
+                else -> GeoapifyBright
             }
         }
     }
@@ -221,9 +242,16 @@ object MapTileSources {
      */
     fun resolveOverlay(provider: MapProviderId, basemapId: String?): ITileSource? {
         return when (provider) {
-            MapProviderId.ARCGIS -> if (basemapId == "arcgis_hybrid") ArcGisTransportation else null
-            MapProviderId.MAPBOX -> if (basemapId == "mapbox_satellite") ArcGisTransportation else null
+            MapProviderId.ARCGIS -> ArcGisTransportation
+            MapProviderId.MAPBOX -> ArcGisBoundariesAndPlaces
             else -> null
         }
+    }
+
+    /**
+     * Returns true if dark color filter should be applied to this map style.
+     */
+    fun isDarkFilterRequired(provider: MapProviderId, basemapId: String?): Boolean {
+        return (provider == MapProviderId.GOOGLE_MAPS && basemapId == "google_dark")
     }
 }

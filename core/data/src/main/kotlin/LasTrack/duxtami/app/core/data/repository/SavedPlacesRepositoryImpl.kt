@@ -85,6 +85,7 @@ class SavedPlacesRepositoryImpl @Inject constructor(
             isReminderActive = isReminderActive,
             reminderNote = reminderNote,
             createdAt = createdAt,
+            iconKey = iconKey,
         )
     }
 
@@ -105,6 +106,7 @@ class SavedPlacesRepositoryImpl @Inject constructor(
             isReminderActive = isReminderActive,
             reminderNote = reminderNote,
             createdAt = createdAt,
+            iconKey = iconKey,
         )
     }
 }

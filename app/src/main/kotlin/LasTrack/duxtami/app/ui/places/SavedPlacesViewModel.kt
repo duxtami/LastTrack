@@ -1,9 +1,11 @@
 package LasTrack.duxtami.app.ui.places
 
 import LasTrack.duxtami.app.core.model.CoordinateParser
+import LasTrack.duxtami.app.core.model.GeoPoint
 import LasTrack.duxtami.app.core.model.PlaceCategory
 import LasTrack.duxtami.app.core.model.SavedPlace
 import LasTrack.duxtami.app.core.model.SavedPlacesRepository
+import LasTrack.duxtami.app.ui.maps.TrackRecordingManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,11 +26,13 @@ data class SavedPlacesUiState(
     val selectedFilter: String? = null,
     val searchQuery: String = "",
     val availableCustomLabels: List<String> = emptyList(),
+    val currentLocation: GeoPoint? = null,
 )
 
 @HiltViewModel
 class SavedPlacesViewModel @Inject constructor(
     private val repository: SavedPlacesRepository,
+    private val recordingManager: TrackRecordingManager,
 ) : ViewModel() {
 
     private val selectedFilter = MutableStateFlow<String?>(null)
@@ -40,7 +44,8 @@ class SavedPlacesViewModel @Inject constructor(
         selectedFilter,
         searchQuery,
         userCustomLabels,
-    ) { allPlaces, filter, query, customSet ->
+        recordingManager.currentLocation,
+    ) { allPlaces, filter, query, customSet, curLoc ->
         val allCustomLabels = (customSet + allPlaces.mapNotNull { it.customLabel })
             .filter { it.isNotBlank() }
             .distinct()
@@ -68,6 +73,7 @@ class SavedPlacesViewModel @Inject constructor(
             selectedFilter = filter,
             searchQuery = query,
             availableCustomLabels = allCustomLabels,
+            currentLocation = curLoc,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SavedPlacesUiState())
 
@@ -93,6 +99,7 @@ class SavedPlacesViewModel @Inject constructor(
         customLabel: String? = null,
         description: String?,
         imageUri: String?,
+        iconKey: String? = null,
     ): Boolean {
         val parsed = CoordinateParser.resolveAndParse(rawCoordinates) ?: return false
         val savedImagePath = if (imageUri != null) repository.saveImage(imageUri) else null
@@ -108,6 +115,7 @@ class SavedPlacesViewModel @Inject constructor(
             isReminderActive = false,
             reminderNote = null,
             createdAt = System.currentTimeMillis(),
+            iconKey = iconKey,
         )
         repository.savePlace(place)
         return true
@@ -122,6 +130,7 @@ class SavedPlacesViewModel @Inject constructor(
         description: String?,
         imageUri: String?,
         removeImage: Boolean = false,
+        iconKey: String? = null,
     ): Boolean {
         val existing = repository.get(id) ?: return false
         val parsed = CoordinateParser.resolveAndParse(rawCoordinates)
@@ -152,6 +161,7 @@ class SavedPlacesViewModel @Inject constructor(
             customLabel = if (category == PlaceCategory.CUSTOM) customLabel?.trim()?.ifEmpty { null } else null,
             description = description?.trim()?.ifEmpty { null },
             imagePath = finalImagePath,
+            iconKey = iconKey ?: existing.iconKey,
         )
         repository.savePlace(updated)
         return true

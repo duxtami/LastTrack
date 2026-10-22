@@ -2,8 +2,10 @@ package LasTrack.duxtami.app
 
 import LasTrack.duxtami.app.core.map.MapProviderRegistry
 import LasTrack.duxtami.app.map.arcgis.ArcGisProvider
+import LasTrack.duxtami.app.map.geoapify.GeoapifyProvider
 import LasTrack.duxtami.app.map.google.GoogleMapProvider
 import LasTrack.duxtami.app.map.mapbox.MapboxProvider
+import LasTrack.duxtami.app.map.maplibre.MapLibreProvider
 import LasTrack.duxtami.app.map.osm.OpenStreetMapProvider
 import dagger.Module
 import dagger.Provides
@@ -22,6 +24,8 @@ object MapModule {
                 GoogleMapProvider(),
                 MapboxProvider(),
                 ArcGisProvider(),
+                MapLibreProvider(),
+                GeoapifyProvider(),
             )
         )
 }
